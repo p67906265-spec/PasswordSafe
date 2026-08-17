@@ -1,4 +1,4 @@
-# Password Safe 0.4
+# Password Safe 0.5
 
 Prima base Android del gestore password.
 
@@ -18,6 +18,7 @@ Prima base Android del gestore password.
 - copia negli appunti con cancellazione automatica dopo 30 secondi;
 - backup cifrato e ripristino tramite il selettore file di Google Drive.
 - menu di creazione con tre tipi: Account, PIN e Login.
+- nuova home colorata con categorie, testata illustrata e navigazione inferiore.
 
 ## Compilazione automatica con GitHub
 

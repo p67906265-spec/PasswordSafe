@@ -1,6 +1,7 @@
 package it.paolo.passwordsafe
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -29,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var vault: VaultStore
     private var items = mutableListOf<VaultItem>()
     private var pendingBackup: ByteArray? = null
+    private var vaultTypeFilter = "ALL"
     private val blue = Color.rgb(22, 93, 255)
 
     private val createBackupFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -139,40 +141,61 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderVault(filter: String) {
-        val body = column()
-        body.addView(title("La mia cassaforte", "${items.size} password salvate"))
-        val search = EditText(this).apply {
-            hint = "Cerca account o categoria"; setText(filter); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY)
-            setBackgroundColor(Color.WHITE); setPadding(28, 18, 28, 18)
-            setSingleLine(true)
-            addTextChangedListener(object : android.text.TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                override fun afterTextChanged(s: android.text.Editable?) { if (s.toString() != filter) renderVault(s.toString()) }
-            })
+        window.statusBarColor = Color.rgb(49,45,157)
+        val body = column().apply { setPadding(30,26,30,30) }
+        val hero = LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(34,34,28,34)
+            background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(Color.rgb(54,50,166),Color.rgb(89,72,194))).apply{cornerRadius=38f}
+            val words=LinearLayout(this@MainActivity).apply {
+                orientation=LinearLayout.VERTICAL
+                addView(TextView(this@MainActivity).apply{text="La mia\ncassaforte";textSize=31f;setTextColor(Color.WHITE);setTypeface(typeface,1)})
+                addView(TextView(this@MainActivity).apply{text="✓  ${items.size} ${if(items.size==1) "elemento salvato" else "elementi salvati"}";textSize=15f;setTextColor(Color.rgb(235,233,255));setPadding(0,12,0,0)})
+            }
+            addView(words,LinearLayout.LayoutParams(0,-2,1f));addView(TextView(this@MainActivity).apply{text="🔐";textSize=58f;gravity=Gravity.CENTER})
         }
-        body.addView(search, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0,0,0,18) })
-        body.addView(button("＋ AGGIUNGI") { showCreateTypeMenu() })
-        val filtered = items.filter { filter.isBlank() || listOf(it.title,it.username,it.category,it.url).any { v -> v.contains(filter,true) } }
-        if (filtered.isEmpty()) body.addView(TextView(this).apply {
-            text = if (items.isEmpty()) "🔐\n\nLa cassaforte è vuota\nAggiungi la prima password." else "Nessun risultato"
-            gravity = Gravity.CENTER; textSize = 18f; setTextColor(Color.DKGRAY); setPadding(20,60,20,60)
-        })
-        filtered.sortedBy { it.title.lowercase() }.forEach { item -> body.addView(itemCard(item)) }
-        body.addView(button("GENERA PASSWORD") { showGeneratedPassword() })
-        body.addView(button("BACKUP / RIPRISTINO") { showBackupMenu() })
-        body.addView(button("BLOCCA") { showLogin(false) })
-        setPage(body)
-        search.setSelection(search.text.length)
+        body.addView(hero,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,14)})
+        val search=EditText(this).apply {
+            hint="🔍  Cerca account o categoria";setText(filter);setTextColor(Color.rgb(23,32,51));setHintTextColor(Color.rgb(125,128,145));setSingleLine(true)
+            background=GradientDrawable().apply{setColor(Color.WHITE);cornerRadius=42f;setStroke(1,Color.rgb(225,225,235))};elevation=8f;setPadding(30,20,30,20)
+            addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){};override fun afterTextChanged(s:android.text.Editable?){if(s.toString()!=filter)renderVault(s.toString())}})
+        }
+        body.addView(search,LinearLayout.LayoutParams(-1,-2).apply{setMargins(10,0,10,22)})
+        val categories=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER}
+        categories.addView(categoryTile("👤","Account",items.count{it.type=="ACCOUNT"},"ACCOUNT",Color.rgb(238,236,255)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(0,0,6,0)})
+        categories.addView(categoryTile("•••","PIN",items.count{it.type=="PIN"},"PIN",Color.rgb(255,237,232)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(6,0,6,0)})
+        categories.addView(categoryTile("🔒","Login",items.count{it.type=="LOGIN"},"LOGIN",Color.rgb(230,248,239)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(6,0,0,0)})
+        body.addView(categories,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,26)})
+        val section=when(vaultTypeFilter){"ACCOUNT"->"I tuoi account";"PIN"->"I tuoi PIN";"LOGIN"->"I tuoi login";else->"Tutti gli elementi"}
+        body.addView(TextView(this).apply{text=section;textSize=20f;setTextColor(Color.rgb(28,36,70));setTypeface(typeface,1);setPadding(4,0,0,10)})
+        val filtered=items.filter{(vaultTypeFilter=="ALL"||it.type==vaultTypeFilter)&&(filter.isBlank()||listOf(it.title,it.username,it.category,it.url).any{v->v.contains(filter,true)})}
+        if(filtered.isEmpty())body.addView(TextView(this).apply{text=if(items.isEmpty())"🔐\n\nLa cassaforte è vuota\nPremi + per iniziare." else "Nessun risultato";gravity=Gravity.CENTER;textSize=18f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
+        filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemCard(it))}
+        val scroll=ScrollView(this).apply{setBackgroundColor(Color.rgb(250,248,245));addView(body)}
+        val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(250,248,245));addView(scroll,LinearLayout.LayoutParams(-1,0,1f));addView(vaultBottomBar())}
+        setContentView(root);search.setSelection(search.text.length)
     }
 
+    private fun categoryTile(icon:String,label:String,count:Int,type:String,color:Int)=MaterialCardView(this).apply{
+        radius=28f;cardElevation=if(vaultTypeFilter==type)7f else 2f;setCardBackgroundColor(color);strokeWidth=if(vaultTypeFilter==type)4 else 0;strokeColor=blue
+        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(8,20,8,18);addView(TextView(this@MainActivity).apply{text=icon;textSize=25f;gravity=Gravity.CENTER});addView(TextView(this@MainActivity).apply{text=label;textSize=16f;setTextColor(Color.rgb(28,36,70));setTypeface(typeface,1);gravity=Gravity.CENTER});addView(TextView(this@MainActivity).apply{text="$count ${if(count==1) "elemento" else "elementi"}";textSize=11f;setTextColor(Color.GRAY);gravity=Gravity.CENTER})});setOnClickListener{vaultTypeFilter=if(vaultTypeFilter==type)"ALL" else type;renderVault("")}
+    }
+
+    private fun vaultBottomBar()=LinearLayout(this).apply{
+        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(12,10,12,14);setBackgroundColor(Color.WHITE);elevation=16f
+        addView(navButton("🔐\nCassaforte"){vaultTypeFilter="ALL";renderVault("")},LinearLayout.LayoutParams(0,130,1f));addView(navButton("⚡\nGenera"){showGeneratedPassword()},LinearLayout.LayoutParams(0,130,1f));addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=32f;cornerRadius=70;setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(255,100,92));setOnClickListener{showCreateTypeMenu()}},LinearLayout.LayoutParams(130,130).apply{setMargins(8,0,8,0)});addView(navButton("⚙\nImpostazioni"){showSettingsMenu()},LinearLayout.LayoutParams(0,130,1f))
+    }
+    private fun navButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=12f;setTextColor(Color.rgb(55,62,88));setBackgroundColor(Color.TRANSPARENT);setOnClickListener{action()}}
+    private fun showSettingsMenu(){AlertDialog.Builder(this).setTitle("Impostazioni").setItems(arrayOf("Backup / Ripristino","Blocca cassaforte")){_,which->if(which==0)showBackupMenu()else showLogin(false)}.setNegativeButton("Chiudi",null).show()}
+
     private fun itemCard(item: VaultItem) = MaterialCardView(this).apply {
-        radius = 24f; setCardBackgroundColor(Color.WHITE); cardElevation = 3f
+        radius = 30f; setCardBackgroundColor(Color.WHITE); cardElevation = 5f
         val box = column().apply { setPadding(28,24,28,24) }
         val kind = when(item.type) { "PIN" -> "PIN"; "ACCOUNT" -> "ACCOUNT"; else -> "LOGIN" }
-        box.addView(TextView(this@MainActivity).apply { text = "$kind  •  ${item.title}"; textSize = 21f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1) })
+        val accent=when(item.type){"PIN"->Color.rgb(255,100,92);"ACCOUNT"->Color.rgb(70,72,205);else->Color.rgb(30,175,112)}
+        box.addView(TextView(this@MainActivity).apply { text = "●  $kind"; textSize = 13f; setTextColor(accent); setTypeface(typeface,1) })
+        box.addView(TextView(this@MainActivity).apply { text = item.title; textSize = 22f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1); setPadding(0,6,0,0) })
         box.addView(TextView(this@MainActivity).apply {
-            text = if(item.type=="PIN") "Codice protetto" else item.username
+            text = if(item.type=="PIN") "✱ ✱ ✱ ✱ ✱ ✱" else item.username
             textSize = 15f; setTextColor(Color.DKGRAY); setPadding(0,6,0,12)
         })
         val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
@@ -180,7 +203,7 @@ class MainActivity : AppCompatActivity() {
         actions.addView(smallButton(if(item.type=="PIN") "COPIA PIN" else "PASSWORD") { copySecure(if(item.type=="PIN") "PIN" else "Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f))
         actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f))
         box.addView(actions); addView(box)
-        layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,10,0,10) }
+        layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,10,0,14) }
     }
 
     private fun showCreateTypeMenu() {
