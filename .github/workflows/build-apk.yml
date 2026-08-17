@@ -37,11 +37,11 @@ jobs:
         run: gradle assembleRelease --stacktrace
 
       - name: Rinomina APK
-        run: cp app/build/outputs/apk/release/app-release.apk PasswordSafe-v0.6.apk
+        run: cp app/build/outputs/apk/release/app-release.apk PasswordSafe-v0.7.apk
 
       - name: Pubblica APK
         uses: actions/upload-artifact@v4
         with:
-          name: PasswordSafe-v0.6-apk
-          path: PasswordSafe-v0.6.apk
+          name: PasswordSafe-v0.7-apk
+          path: PasswordSafe-v0.7.apk
           retention-days: 30
