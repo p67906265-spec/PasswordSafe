@@ -19,6 +19,6 @@ class SecurityChartView(context: Context) : View(context) {
         val colors=intArrayOf(Color.rgb(121,166,26),Color.rgb(205,38,38),Color.rgb(170,170,170))
         if(values.sum()==0){paint.color=Color.rgb(70,95,110);canvas.drawArc(oval,0f,360f,true,paint);return}
         values.forEachIndexed{i,value->if(value>0){val sweep=360f*value/total;paint.color=colors[i];canvas.drawArc(oval,start,sweep,true,paint);start+=sweep}}
-        paint.color=Color.rgb(17,38,55);canvas.drawCircle(oval.centerX(),oval.centerY(),size*.25f,paint)
+        paint.color=Color.rgb(22,16,52);canvas.drawCircle(oval.centerX(),oval.centerY(),size*.25f,paint)
     }
 }
