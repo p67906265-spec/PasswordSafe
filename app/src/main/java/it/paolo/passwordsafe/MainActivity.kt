@@ -152,7 +152,7 @@ class MainActivity : AppCompatActivity() {
             })
         }
         body.addView(search, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0,0,0,18) })
-        body.addView(button("＋ AGGIUNGI PASSWORD") { showItemDialog(null) })
+        body.addView(button("＋ AGGIUNGI") { showCreateTypeMenu() })
         val filtered = items.filter { filter.isBlank() || listOf(it.title,it.username,it.category,it.url).any { v -> v.contains(filter,true) } }
         if (filtered.isEmpty()) body.addView(TextView(this).apply {
             text = if (items.isEmpty()) "🔐\n\nLa cassaforte è vuota\nAggiungi la prima password." else "Nessun risultato"
@@ -169,36 +169,50 @@ class MainActivity : AppCompatActivity() {
     private fun itemCard(item: VaultItem) = MaterialCardView(this).apply {
         radius = 24f; setCardBackgroundColor(Color.WHITE); cardElevation = 3f
         val box = column().apply { setPadding(28,24,28,24) }
-        box.addView(TextView(this@MainActivity).apply { text = item.title; textSize = 21f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1) })
-        box.addView(TextView(this@MainActivity).apply { text = "${item.username}\n${item.category}"; textSize = 15f; setTextColor(Color.DKGRAY); setPadding(0,6,0,12) })
+        val kind = when(item.type) { "PIN" -> "PIN"; "ACCOUNT" -> "ACCOUNT"; else -> "LOGIN" }
+        box.addView(TextView(this@MainActivity).apply { text = "$kind  •  ${item.title}"; textSize = 21f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1) })
+        box.addView(TextView(this@MainActivity).apply {
+            text = if(item.type=="PIN") "Codice protetto" else item.username
+            textSize = 15f; setTextColor(Color.DKGRAY); setPadding(0,6,0,12)
+        })
         val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
-        actions.addView(smallButton("UTENTE") { copySecure("Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f))
-        actions.addView(smallButton("PASSWORD") { copySecure("Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f))
+        if(item.type!="PIN") actions.addView(smallButton(if(item.type=="ACCOUNT") "EMAIL" else "UTENTE") { copySecure(if(item.type=="ACCOUNT") "Email" else "Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f))
+        actions.addView(smallButton(if(item.type=="PIN") "COPIA PIN" else "PASSWORD") { copySecure(if(item.type=="PIN") "PIN" else "Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f))
         actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f))
         box.addView(actions); addView(box)
         layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,10,0,10) }
     }
 
-    private fun showItemDialog(existing: VaultItem?) {
+    private fun showCreateTypeMenu() {
+        val labels = arrayOf("👤  Account", "💳  PIN", "🌐  Login")
+        AlertDialog.Builder(this).setTitle("Cosa vuoi creare?").setItems(labels) { _, which ->
+            showItemDialog(null, when(which) { 0 -> "ACCOUNT"; 1 -> "PIN"; else -> "LOGIN" })
+        }.setNegativeButton("Annulla",null).show()
+    }
+
+    private fun showItemDialog(existing: VaultItem?, requestedType: String? = null) {
+        val itemType = existing?.type ?: requestedType ?: "LOGIN"
         val box = column()
-        val titleF = dialogField("Nome account", existing?.title ?: "")
-        val userF = dialogField("Nome utente / email", existing?.username ?: "")
-        val passF = dialogField("Password", existing?.password ?: generatedPassword())
-        val categoryF = dialogField("Categoria", existing?.category ?: "Altro")
-        val urlF = dialogField("Sito web", existing?.url ?: "")
-        val notesF = dialogField("Note", existing?.notes ?: "")
-        listOf(titleF,userF,passF,categoryF,urlF,notesF).forEach { box.addView(it) }
-        box.addView(smallButton("GENERA NUOVA PASSWORD") { passF.setText(generatedPassword()) })
-        val dialog = AlertDialog.Builder(this).setTitle(if(existing==null) "Nuova password" else "Modifica password")
+        val titleF = dialogField(when(itemType) { "PIN" -> "Nome banca"; "ACCOUNT" -> "Nome account"; else -> "Nome del sito" }, existing?.title ?: "")
+        val userF = dialogField(if(itemType=="ACCOUNT") "Email" else "Nome utente / email", existing?.username ?: "")
+        val passF = dialogField(if(itemType=="PIN") "PIN" else "Password", existing?.password ?: "")
+        if(itemType=="PIN") passF.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        box.addView(titleF)
+        if(itemType!="PIN") box.addView(userF)
+        box.addView(passF)
+        if(itemType!="PIN") box.addView(smallButton("GENERA NUOVA PASSWORD") { passF.setText(generatedPassword()) })
+        val typeLabel = when(itemType) { "PIN" -> "PIN"; "ACCOUNT" -> "Account"; else -> "Login" }
+        val dialog = AlertDialog.Builder(this).setTitle(if(existing==null) "Nuovo $typeLabel" else "Modifica $typeLabel")
             .setView(ScrollView(this).apply { addView(box) })
             .setNegativeButton("Annulla", null)
             .setPositiveButton("Salva", null)
             .apply { if(existing!=null) setNeutralButton("Elimina", null) }.create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (titleF.text.toString().isBlank() || passF.text.toString().isBlank()) return@setOnClickListener toast("Inserisci nome e password")
-                if (existing == null) items.add(VaultItem(title=titleF.text.toString(), username=userF.text.toString(), password=passF.text.toString(), url=urlF.text.toString(), notes=notesF.text.toString(), category=categoryF.text.toString()))
-                else { existing.title=titleF.text.toString(); existing.username=userF.text.toString(); existing.password=passF.text.toString(); existing.url=urlF.text.toString(); existing.notes=notesF.text.toString(); existing.category=categoryF.text.toString() }
+                if (titleF.text.toString().isBlank() || passF.text.toString().isBlank()) return@setOnClickListener toast(if(itemType=="PIN") "Inserisci banca e PIN" else "Completa nome e password")
+                if (itemType!="PIN" && userF.text.toString().isBlank()) return@setOnClickListener toast(if(itemType=="ACCOUNT") "Inserisci l’email" else "Inserisci utente o email")
+                if (existing == null) items.add(VaultItem(title=titleF.text.toString(), username=userF.text.toString(), password=passF.text.toString(), category=typeLabel, type=itemType))
+                else { existing.title=titleF.text.toString(); existing.username=userF.text.toString(); existing.password=passF.text.toString(); existing.category=typeLabel; existing.type=itemType }
                 vault.save(items); dialog.dismiss(); renderVault("")
             }
             if(existing!=null) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {

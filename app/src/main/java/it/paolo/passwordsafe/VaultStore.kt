@@ -23,7 +23,8 @@ data class VaultItem(
     var password: String,
     var url: String = "",
     var notes: String = "",
-    var category: String = "Altro"
+    var category: String = "Altro",
+    var type: String = "LOGIN"
 )
 
 class VaultStore(private val context: Context) {
@@ -83,12 +84,12 @@ class VaultStore(private val context: Context) {
     }
     private fun toJson(items: List<VaultItem>) = JSONArray().apply { items.forEach { i ->
         put(JSONObject().put("id", i.id).put("title", i.title).put("username", i.username)
-            .put("password", i.password).put("url", i.url).put("notes", i.notes).put("category", i.category))
+            .put("password", i.password).put("url", i.url).put("notes", i.notes).put("category", i.category).put("type", i.type))
     }}.toString()
     private fun fromJson(json: String): MutableList<VaultItem> {
         val arr = JSONArray(json); return MutableList(arr.length()) { n -> arr.getJSONObject(n).let { o ->
             VaultItem(o.getString("id"), o.getString("title"), o.optString("username"), o.optString("password"),
-                o.optString("url"), o.optString("notes"), o.optString("category", "Altro"))
+                o.optString("url"), o.optString("notes"), o.optString("category", "Altro"), o.optString("type", "LOGIN"))
         }}
     }
     private fun b64(data: ByteArray) = Base64.encodeToString(data, Base64.NO_WRAP)

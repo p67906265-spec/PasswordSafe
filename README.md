@@ -1,4 +1,4 @@
-# Password Safe 0.3
+# Password Safe 0.4
 
 Prima base Android del gestore password.
 
@@ -17,6 +17,7 @@ Prima base Android del gestore password.
 - generatore di password da 20 caratteri;
 - copia negli appunti con cancellazione automatica dopo 30 secondi;
 - backup cifrato e ripristino tramite il selettore file di Google Drive.
+- menu di creazione con tre tipi: Account, PIN e Login.
 
 ## Compilazione automatica con GitHub
 
