@@ -160,11 +160,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderVault(filter: String) {
         window.statusBarColor = Color.rgb(49,45,157)
-        val body = column().apply { setPadding(30,26,30,30) }
-        val categories=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
-        categories.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(categoryTile("Account",items.count{it.type=="ACCOUNT"},"ACCOUNT",Color.rgb(238,236,255)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(0,0,dp(5),dp(5))});addView(categoryTile("PIN",items.count{it.type=="PIN"},"PIN",Color.rgb(255,237,232)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(5),0,0,dp(5))})})
-        categories.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(categoryTile("Login",items.count{it.type=="LOGIN"},"LOGIN",Color.rgb(230,248,239)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(0,dp(5),dp(5),0)});addView(categoryTile("Email",items.count{it.type=="EMAIL"},"EMAIL",Color.rgb(255,246,218)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(5),dp(5),0,0)})})
-        body.addView(categories,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,26)})
+        val body = column().apply { setPadding(dp(18),dp(14),dp(18),dp(24)) }
+        body.addView(TextView(this).apply{text="Cassaforte";textSize=28f;setTextColor(Color.rgb(28,36,70));setTypeface(typeface,1);setPadding(dp(2),0,0,dp(14))})
+        val categories=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER
+            addView(categoryTile("Account",items.count{it.type=="ACCOUNT"},"ACCOUNT",Color.rgb(238,236,255)),LinearLayout.LayoutParams(0,dp(82),1f).apply{setMargins(0,0,dp(3),0)})
+            addView(categoryTile("PIN",items.count{it.type=="PIN"},"PIN",Color.rgb(255,237,232)),LinearLayout.LayoutParams(0,dp(82),1f).apply{setMargins(dp(3),0,dp(3),0)})
+            addView(categoryTile("Login",items.count{it.type=="LOGIN"},"LOGIN",Color.rgb(230,248,239)),LinearLayout.LayoutParams(0,dp(82),1f).apply{setMargins(dp(3),0,dp(3),0)})
+            addView(categoryTile("Email",items.count{it.type=="EMAIL"},"EMAIL",Color.rgb(255,246,218)),LinearLayout.LayoutParams(0,dp(82),1f).apply{setMargins(dp(3),0,0,0)})}
+        body.addView(categories,LinearLayout.LayoutParams(-1,dp(82)).apply{setMargins(0,0,0,dp(18))})
         val filtered=items.filter{it.type==vaultTypeFilter}
         if(vaultTypeFilter!="NONE" && filtered.isEmpty())body.addView(TextView(this).apply{text="Nessun elemento in questa categoria";gravity=Gravity.CENTER;textSize=17f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
         filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemCard(it))}
@@ -175,8 +178,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun categoryTile(label:String,count:Int,type:String,color:Int)=MaterialCardView(this).apply{
-        radius=28f;cardElevation=if(vaultTypeFilter==type)7f else 2f;setCardBackgroundColor(color);strokeWidth=if(vaultTypeFilter==type)4 else 0;strokeColor=blue;alpha=if(vaultTypeFilter=="NONE"||vaultTypeFilter==type)1f else .28f
-        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(8,dp(28),8,dp(26));addView(TextView(this@MainActivity).apply{text=label;textSize=20f;setTextColor(Color.rgb(28,36,70));setTypeface(typeface,1);gravity=Gravity.CENTER});addView(TextView(this@MainActivity).apply{text="$count ${if(count==1) "elemento" else "elementi"}";textSize=12f;setTextColor(Color.GRAY);gravity=Gravity.CENTER;setPadding(0,dp(5),0,0)})});setOnClickListener{vaultTypeFilter=if(vaultTypeFilter==type)"NONE" else type;renderVault("")}
+        radius=dp(14).toFloat();cardElevation=if(vaultTypeFilter==type)6f else 2f;setCardBackgroundColor(color);strokeWidth=if(vaultTypeFilter==type)3 else 0;strokeColor=blue;alpha=if(vaultTypeFilter=="NONE"||vaultTypeFilter==type)1f else .28f
+        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(dp(2),dp(12),dp(2),dp(10));addView(TextView(this@MainActivity).apply{text=label;textSize=14f;maxLines=1;setTextColor(Color.rgb(28,36,70));setTypeface(typeface,1);gravity=Gravity.CENTER});addView(TextView(this@MainActivity).apply{text=count.toString();textSize=10f;setTextColor(Color.GRAY);gravity=Gravity.CENTER;setPadding(0,dp(3),0,0)})});setOnClickListener{vaultTypeFilter=if(vaultTypeFilter==type)"NONE" else type;renderVault("")}
     }
 
     private fun vaultBottomBar()=LinearLayout(this).apply{
@@ -188,18 +191,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun itemCard(item: VaultItem) = MaterialCardView(this).apply {
         radius = 30f; setCardBackgroundColor(Color.WHITE); cardElevation = 5f
-        val box = column().apply { setPadding(28,24,28,24) }
+        val box = column().apply { setPadding(dp(20),dp(18),dp(20),dp(18)) }
         val kind = when(item.type) { "PIN" -> "PIN"; "ACCOUNT" -> "ACCOUNT"; "EMAIL" -> "EMAIL"; else -> "LOGIN" }
         val accent=when(item.type){"PIN"->Color.rgb(255,100,92);"ACCOUNT"->Color.rgb(70,72,205);"EMAIL"->Color.rgb(218,155,20);else->Color.rgb(30,175,112)}
-        box.addView(TextView(this@MainActivity).apply { text = "●  $kind"; textSize = 13f; setTextColor(accent); setTypeface(typeface,1) })
-        box.addView(TextView(this@MainActivity).apply { text = item.title; textSize = 22f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1); setPadding(0,6,0,0) })
+        box.addView(TextView(this@MainActivity).apply { text = "●  $kind"; textSize = if(item.type=="EMAIL")11f else 13f; setTextColor(accent); setTypeface(typeface,1) })
+        box.addView(TextView(this@MainActivity).apply { text = item.title; textSize = if(item.type=="EMAIL")18f else 22f; maxLines=1;setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1); setPadding(0,dp(5),0,0) })
         if(item.type!="EMAIL")box.addView(TextView(this@MainActivity).apply {
             text = if(item.type=="PIN") if(revealedPins.contains(item.id)) item.password else "✱ ✱ ✱ ✱ ✱ ✱" else item.username
             textSize = if(item.type=="PIN" && revealedPins.contains(item.id)) 32f else 15f
             gravity = if(item.type=="PIN" && revealedPins.contains(item.id)) Gravity.CENTER else Gravity.START
             if(item.type=="PIN" && revealedPins.contains(item.id))setTypeface(typeface,1)
             setTextColor(Color.DKGRAY); setPadding(0,dp(8),0,dp(14))
-        }) else box.addView(TextView(this@MainActivity).apply { text="Credenziali protette";textSize=13f;setTextColor(Color.GRAY);setPadding(0,5,0,12) })
+        }) else box.addView(TextView(this@MainActivity).apply { text="Credenziali protette";textSize=12f;setTextColor(Color.GRAY);setPadding(0,dp(4),0,dp(10)) })
         val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
         if(item.type=="PIN") actions.addView(smallButton(if(revealedPins.contains(item.id)) "NASCONDI PIN" else "MOSTRA PIN") { if(revealedPins.contains(item.id))revealedPins.remove(item.id)else revealedPins.add(item.id);renderVault("") },LinearLayout.LayoutParams(-1,dp(48)))
         else { actions.addView(smallButton(if(item.type=="ACCOUNT"||item.type=="EMAIL") "EMAIL" else "UTENTE") { copySecure(if(item.type=="ACCOUNT"||item.type=="EMAIL") "Email" else "Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("PASSWORD") { copySecure("Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f)) }
