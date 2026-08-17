@@ -1,4 +1,4 @@
-# Password Safe 0.1
+# Password Safe 0.3
 
 Prima base Android del gestore password.
 
@@ -11,6 +11,12 @@ Prima base Android del gestore password.
 - recupero accesso e creazione di un nuovo PIN;
 - conteggio dei tentativi PIN errati;
 - schermata iniziale della cassaforte.
+- archivio locale cifrato AES-GCM tramite Android Keystore;
+- creazione, modifica ed eliminazione degli account;
+- ricerca e categorie;
+- generatore di password da 20 caratteri;
+- copia negli appunti con cancellazione automatica dopo 30 secondi;
+- backup cifrato e ripristino tramite il selettore file di Google Drive.
 
 ## Compilazione automatica con GitHub
 

@@ -2,12 +2,18 @@ package it.paolo.passwordsafe
 
 import android.graphics.Color
 import android.os.Bundle
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.EditText
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.biometric.BiometricManager
@@ -20,12 +26,27 @@ import com.google.android.material.textfield.TextInputLayout
 
 class MainActivity : AppCompatActivity() {
     private lateinit var security: SecurityStore
+    private lateinit var vault: VaultStore
+    private var items = mutableListOf<VaultItem>()
+    private var pendingBackup: ByteArray? = null
     private val blue = Color.rgb(22, 93, 255)
+
+    private val createBackupFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null) runCatching { pendingBackup?.let { data -> contentResolver.openOutputStream(uri)?.use { it.write(data) } } }
+            .onSuccess { toast("Backup cifrato salvato") }.onFailure { toast("Impossibile salvare il backup") }
+        pendingBackup = null
+    }
+    private val openBackupFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("File vuoto") }
+            .onSuccess { askRestorePin(it) }.onFailure { toast("Impossibile leggere il backup") }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
         security = SecurityStore(this)
+        vault = VaultStore(this)
+        items = vault.load()
         if (security.configured) showLogin() else showSetup()
     }
 
@@ -114,18 +135,117 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showVault() {
-        val body = column(); body.addView(title("La mia cassaforte", "Nessuna password salvata"))
-        val card = MaterialCardView(this).apply {
-            radius = 28f; setCardBackgroundColor(Color.WHITE); cardElevation = 4f
-            addView(TextView(this@MainActivity).apply {
-                text = "🔐\n\nLa cassaforte è pronta\n\nNella prossima versione aggiungeremo account, ricerca e generatore di password."
-                textSize = 18f; gravity = Gravity.CENTER; setPadding(36, 60, 36, 60)
+        renderVault("")
+    }
+
+    private fun renderVault(filter: String) {
+        val body = column()
+        body.addView(title("La mia cassaforte", "${items.size} password salvate"))
+        val search = EditText(this).apply {
+            hint = "Cerca account o categoria"; setText(filter); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY)
+            setBackgroundColor(Color.WHITE); setPadding(28, 18, 28, 18)
+            setSingleLine(true)
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) { if (s.toString() != filter) renderVault(s.toString()) }
             })
         }
-        body.addView(card, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 24, 0, 24) })
+        body.addView(search, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0,0,0,18) })
+        body.addView(button("＋ AGGIUNGI PASSWORD") { showItemDialog(null) })
+        val filtered = items.filter { filter.isBlank() || listOf(it.title,it.username,it.category,it.url).any { v -> v.contains(filter,true) } }
+        if (filtered.isEmpty()) body.addView(TextView(this).apply {
+            text = if (items.isEmpty()) "🔐\n\nLa cassaforte è vuota\nAggiungi la prima password." else "Nessun risultato"
+            gravity = Gravity.CENTER; textSize = 18f; setTextColor(Color.DKGRAY); setPadding(20,60,20,60)
+        })
+        filtered.sortedBy { it.title.lowercase() }.forEach { item -> body.addView(itemCard(item)) }
+        body.addView(button("GENERA PASSWORD") { showGeneratedPassword() })
+        body.addView(button("BACKUP / RIPRISTINO") { showBackupMenu() })
         body.addView(button("BLOCCA") { showLogin(false) })
         setPage(body)
+        search.setSelection(search.text.length)
     }
+
+    private fun itemCard(item: VaultItem) = MaterialCardView(this).apply {
+        radius = 24f; setCardBackgroundColor(Color.WHITE); cardElevation = 3f
+        val box = column().apply { setPadding(28,24,28,24) }
+        box.addView(TextView(this@MainActivity).apply { text = item.title; textSize = 21f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1) })
+        box.addView(TextView(this@MainActivity).apply { text = "${item.username}\n${item.category}"; textSize = 15f; setTextColor(Color.DKGRAY); setPadding(0,6,0,12) })
+        val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
+        actions.addView(smallButton("UTENTE") { copySecure("Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f))
+        actions.addView(smallButton("PASSWORD") { copySecure("Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f))
+        actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f))
+        box.addView(actions); addView(box)
+        layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,10,0,10) }
+    }
+
+    private fun showItemDialog(existing: VaultItem?) {
+        val box = column()
+        val titleF = dialogField("Nome account", existing?.title ?: "")
+        val userF = dialogField("Nome utente / email", existing?.username ?: "")
+        val passF = dialogField("Password", existing?.password ?: generatedPassword())
+        val categoryF = dialogField("Categoria", existing?.category ?: "Altro")
+        val urlF = dialogField("Sito web", existing?.url ?: "")
+        val notesF = dialogField("Note", existing?.notes ?: "")
+        listOf(titleF,userF,passF,categoryF,urlF,notesF).forEach { box.addView(it) }
+        box.addView(smallButton("GENERA NUOVA PASSWORD") { passF.setText(generatedPassword()) })
+        val dialog = AlertDialog.Builder(this).setTitle(if(existing==null) "Nuova password" else "Modifica password")
+            .setView(ScrollView(this).apply { addView(box) })
+            .setNegativeButton("Annulla", null)
+            .setPositiveButton("Salva", null)
+            .apply { if(existing!=null) setNeutralButton("Elimina", null) }.create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (titleF.text.toString().isBlank() || passF.text.toString().isBlank()) return@setOnClickListener toast("Inserisci nome e password")
+                if (existing == null) items.add(VaultItem(title=titleF.text.toString(), username=userF.text.toString(), password=passF.text.toString(), url=urlF.text.toString(), notes=notesF.text.toString(), category=categoryF.text.toString()))
+                else { existing.title=titleF.text.toString(); existing.username=userF.text.toString(); existing.password=passF.text.toString(); existing.url=urlF.text.toString(); existing.notes=notesF.text.toString(); existing.category=categoryF.text.toString() }
+                vault.save(items); dialog.dismiss(); renderVault("")
+            }
+            if(existing!=null) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                AlertDialog.Builder(this).setTitle("Eliminare ${existing.title}?").setNegativeButton("No",null).setPositiveButton("Elimina") { _,_-> items.remove(existing); vault.save(items); dialog.dismiss(); renderVault("") }.show()
+            }
+        }; dialog.show()
+    }
+
+    private fun showGeneratedPassword() {
+        val value = generatedPassword()
+        AlertDialog.Builder(this).setTitle("Password generata").setMessage(value).setNegativeButton("Chiudi",null)
+            .setPositiveButton("Copia") { _,_-> copySecure("Password",value) }.show()
+    }
+
+    private fun generatedPassword(): String {
+        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%&*+-_"
+        val random = java.security.SecureRandom(); return (1..20).joinToString("") { chars[random.nextInt(chars.length)].toString() }
+    }
+
+    private fun showBackupMenu() {
+        AlertDialog.Builder(this).setTitle("Backup cifrato").setItems(arrayOf("Salva backup su Google Drive", "Ripristina da Google Drive")) { _, which ->
+            if(which==0) askBackupPin() else openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))
+        }.show()
+    }
+    private fun askBackupPin() {
+        val input=dialogField("Conferma il PIN","").apply { inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD }
+        AlertDialog.Builder(this).setTitle("Proteggi il backup").setMessage("Il backup sarà cifrato con il PIN attuale.").setView(input)
+            .setNegativeButton("Annulla",null).setPositiveButton("Continua") { _,_->
+                val pin=input.text.toString(); if(security.verifyPin(pin)) { pendingBackup=vault.createBackup(items,pin); createBackupFile.launch("PasswordSafe-backup.psafe") } else toast("PIN non corretto")
+            }.show()
+    }
+    private fun askRestorePin(bytes: ByteArray) {
+        val input=dialogField("PIN usato per il backup","").apply { inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD }
+        AlertDialog.Builder(this).setTitle("Ripristina backup").setMessage("Le password attuali verranno sostituite.").setView(input)
+            .setNegativeButton("Annulla",null).setPositiveButton("Ripristina") { _,_->
+                runCatching { vault.restoreBackup(bytes,input.text.toString()) }.onSuccess { items=it; vault.save(items); renderVault(""); toast("Backup ripristinato") }.onFailure { toast("PIN errato o backup non valido") }
+            }.show()
+    }
+    private fun copySecure(label:String,value:String) {
+        if(value.isBlank()) return toast("Campo vuoto")
+        val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(label,value)); toast("$label copiato; sarà cancellato tra 30 secondi")
+        android.os.Handler(mainLooper).postDelayed({ if(clipboard.hasPrimaryClip()) clipboard.setPrimaryClip(ClipData.newPlainText("", "")) },30000)
+    }
+    private fun dialogField(hint:String,value:String)=EditText(this).apply { this.hint=hint; setText(value); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY); setPadding(18,20,18,20) }
+    private fun smallButton(text:String, action:()->Unit)=MaterialButton(this).apply { this.text=text; textSize=11f; setOnClickListener{action()}; setTextColor(Color.WHITE); setBackgroundColor(blue) }
+    private fun toast(message:String)=Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
 
     private fun setPage(body: LinearLayout) {
         val scroll = ScrollView(this).apply { setBackgroundColor(Color.rgb(244,247,252)); addView(body) }
