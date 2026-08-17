@@ -240,7 +240,7 @@ class MainActivity : AppCompatActivity() {
         addView(TextView(this@MainActivity).apply{text=symbol;textSize=25f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(52),dp(66)).apply{setMargins(0,0,dp(8),0)})
         addView(TextView(this@MainActivity).apply{text=item.title;textSize=18f;maxLines=1;setTextColor(Color.WHITE);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(66),1f))
         addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(30),dp(58)))
-        setOnClickListener{showItemDialog(item)}
+        setOnClickListener{vaultTypeFilter=item.type;showItemDialog(item)}
     }
 
     private fun categoryTile(label:String,count:Int,type:String,color:Int)=MaterialCardView(this).apply{
@@ -253,7 +253,31 @@ class MainActivity : AppCompatActivity() {
         addView(navButton("🔐\nCassaforte"){vaultTypeFilter="NONE";renderVault("")},LinearLayout.LayoutParams(0,dp(76),1f));addView(navButton("⚡\nGenera"){showGeneratedPassword()},LinearLayout.LayoutParams(0,dp(76),1f));addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=30f;cornerRadius=dp(36);setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(255,100,92));setOnClickListener{showCreateTypeMenu()}},LinearLayout.LayoutParams(dp(70),dp(70)).apply{setMargins(dp(5),0,dp(5),0)});addView(navButton("⚙\nImpostazioni"){showSettingsMenu()},LinearLayout.LayoutParams(0,dp(76),1f))
     }
     private fun navButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;maxLines=2;minWidth=0;setPadding(0,0,0,0);setTextColor(Color.rgb(55,62,88));setBackgroundColor(Color.TRANSPARENT);setOnClickListener{action()}}
-    private fun showSettingsMenu(){AlertDialog.Builder(this).setTitle("Impostazioni").setItems(arrayOf("Backup / Ripristino","Blocca cassaforte")){_,which->if(which==0)showBackupMenu()else showLogin(false)}.setNegativeButton("Chiudi",null).show()}
+    private fun showSettingsMenu() {
+        val body=column().apply {
+            setPadding(0,0,0,dp(50));setBackgroundColor(Color.rgb(17,38,55));addView(pageHeader("Impostazioni"){showCategoryMenu()})
+            addView(menuActionRow("Dashboard sicurezza","◉"){showSecurityDashboard()})
+            addView(menuActionRow("Backup e ripristino","↥"){showBackupPage()})
+            addView(menuActionRow("Cambia PIN","●"){showNewPin()})
+            addView(toggleMenuRow("Accesso con impronta","◎",security.biometricEnabled){security.biometricEnabled=it})
+            addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
+            addView(menuActionRow("Blocca cassaforte","▣"){showLogin(false)})
+        };setDarkScreen(body,false)
+    }
+    private fun showBackupPage(){val body=column().apply{setPadding(0,0,0,dp(50));setBackgroundColor(Color.rgb(17,38,55));addView(pageHeader("Backup e ripristino"){showSettingsMenu()});addView(infoText("Il file è cifrato e può essere salvato su Google Drive dal selettore Android."));addView(menuActionRow("Crea backup cifrato","↥"){askBackupPin()});addView(menuActionRow("Ripristina un backup","↧"){openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))})};setDarkScreen(body,false)}
+    private fun showSecurityDashboard(){
+        val protected=items.filter{it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
+        val reused=protected.filter{it.password in reusedValues};val weak=protected.filter{!isStrongPassword(it.password)};val strong=protected.filter{isStrongPassword(it.password)&&it.password !in reusedValues}
+        val body=column().apply{setPadding(0,0,0,dp(60));setBackgroundColor(Color.rgb(17,38,55));addView(pageHeader("Dashboard sicurezza"){showSettingsMenu()});addView(SecurityChartView(this@MainActivity).apply{setValues(strong.size,weak.size,reused.size)},LinearLayout.LayoutParams(-1,dp(190)));addView(securityLegend("Password sicure",strong.size,Color.rgb(121,166,26)));addView(securityLegend("Password deboli",weak.size,Color.rgb(205,38,38)));addView(securityLegend("Password riutilizzate",reused.size,Color.rgb(170,170,170)));addView(sectionLabel("APPROFONDIMENTI SULLA SICUREZZA"));addView(issueRow("Password deboli",weak.distinctBy{it.id},"!"));addView(issueRow("Password riutilizzate",reused.distinctBy{it.id},"↻"));addView(infoText("Il controllo avviene solo sul telefono: nessuna password viene inviata online."))};setDarkScreen(body,false)
+    }
+    private fun isStrongPassword(value:String)=value.length>=12&&value.any{it.isUpperCase()}&&value.any{it.isLowerCase()}&&value.any{it.isDigit()}&&value.any{!it.isLetterOrDigit()}
+    private fun showSecurityIssues(title:String,problemItems:List<VaultItem>){val body=column().apply{setPadding(0,0,0,dp(40));setBackgroundColor(Color.rgb(17,38,55));addView(pageHeader(title){showSecurityDashboard()})};if(problemItems.isEmpty())body.addView(infoText("Nessun problema trovato."))else problemItems.forEach{body.addView(itemListRow(it))};setDarkScreen(body,false)}
+    private fun issueRow(label:String,problemItems:List<VaultItem>,icon:String)=menuActionRow("$label   ${problemItems.size}",icon){showSecurityIssues(label,problemItems)}
+    private fun securityLegend(label:String,count:Int,color:Int)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(34),dp(5),dp(34),dp(5));addView(View(this@MainActivity).apply{background=GradientDrawable().apply{setColor(color);shape=GradientDrawable.OVAL}},LinearLayout.LayoutParams(dp(14),dp(14)).apply{setMargins(0,0,dp(12),0)});addView(TextView(this@MainActivity).apply{text=label;textSize=15f;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(0,dp(36),1f));addView(TextView(this@MainActivity).apply{text=count.toString();textSize=15f;setTextColor(Color.WHITE);setTypeface(typeface,1)})}
+    private fun sectionLabel(value:String)=TextView(this).apply{text=value;textSize=12f;setTextColor(Color.rgb(205,225,233));setPadding(dp(20),dp(26),dp(20),dp(12));setBackgroundColor(Color.rgb(27,52,78))}
+    private fun infoText(value:String)=TextView(this).apply{text=value;textSize=13f;setTextColor(Color.rgb(180,205,216));setPadding(dp(28),dp(22),dp(28),dp(22))}
+    private fun pageHeader(label:String,onBack:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(10),dp(16),dp(16));setBackgroundColor(Color.rgb(27,52,78));addView(TextView(this@MainActivity).apply{text="‹";textSize=38f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{onBack()}},LinearLayout.LayoutParams(dp(50),dp(52)));addView(TextView(this@MainActivity).apply{text=label;textSize=22f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))}
+    private fun toggleMenuRow(label:String,icon:String,checked:Boolean,onChange:(Boolean)->Unit):View=menuActionRow("$label   ${if(checked) "Sì" else "No"}",icon){onChange(!checked);showSettingsMenu()}
 
     private fun itemCard(item: VaultItem) = MaterialCardView(this).apply {
         radius = 30f; setCardBackgroundColor(Color.WHITE); cardElevation = 5f
@@ -286,36 +310,26 @@ class MainActivity : AppCompatActivity() {
 
     private fun showItemDialog(existing: VaultItem?, requestedType: String? = null) {
         val itemType = existing?.type ?: requestedType ?: "LOGIN"
-        val box = column().apply{setPadding(dp(18),dp(18),dp(18),dp(8))}
         val typeLabel = when(itemType) { "PIN" -> "PIN"; "ACCOUNT" -> "Account"; "EMAIL" -> "Email"; else -> "Login" }
-        val typeIcon=when(itemType){"PIN"->"•••";"ACCOUNT"->"👤";"EMAIL"->"✉";else->"🔒"}
-        box.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(20),dp(16),dp(16),dp(16));background=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(Color.rgb(62,55,174),Color.rgb(94,75,198))).apply{cornerRadius=dp(20).toFloat()};addView(TextView(this@MainActivity).apply{text=typeIcon;textSize=25f});addView(TextView(this@MainActivity).apply{text="  ${if(existing==null) "Nuovo" else "Modifica"} $typeLabel";textSize=21f;setTextColor(Color.WHITE);setTypeface(typeface,1)})},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,dp(16))})
-        val titleF = styledDialogField(when(itemType) { "PIN" -> "Nome banca"; "ACCOUNT" -> "Nome account"; else -> "Nome del sito" }, existing?.title ?: "")
-        val userF = styledDialogField(if(itemType=="ACCOUNT"||itemType=="EMAIL") "Email" else "Nome utente / email", existing?.username ?: "")
-        val passF = styledDialogField(if(itemType=="PIN") "PIN" else "Password", existing?.password ?: "")
+        val box=column().apply{setPadding(0,0,0,dp(70));setBackgroundColor(Color.rgb(17,38,55));addView(pageHeader("${if(existing==null) "Nuovo" else "Modifica"} $typeLabel"){renderVault("")})}
+        val fields=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(24),dp(26),dp(24),dp(10))};box.addView(fields)
+        val titleF=darkEditorField(when(itemType){"PIN"->"Nome banca";"ACCOUNT"->"Nome account";else->"Nome del sito"},existing?.title?:"")
+        val userF=darkEditorField(if(itemType=="ACCOUNT"||itemType=="EMAIL")"Email" else "Nome utente / email",existing?.username?:"")
+        val passF=darkEditorField(if(itemType=="PIN")"PIN" else "Password",existing?.password?:"")
         if(itemType=="PIN") passF.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-        if(itemType!="EMAIL")box.addView(titleF)
-        if(itemType!="PIN") box.addView(userF)
-        box.addView(passF)
-        if(itemType!="PIN") box.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;addView(compactDialogButton("GENERA") { passF.setText(generatedPassword()) },LinearLayout.LayoutParams(0,dp(52),1f).apply{setMargins(0,0,dp(5),0)});addView(compactDialogButton("COPIA") { copySecure("Password",passF.text.toString()) },LinearLayout.LayoutParams(0,dp(52),1f).apply{setMargins(dp(5),0,0,0)})},LinearLayout.LayoutParams(-1,dp(52)).apply{setMargins(0,dp(8),0,0)})
-        val dialog = AlertDialog.Builder(this)
-            .setView(ScrollView(this).apply { addView(box) })
-            .setNegativeButton("Annulla", null)
-            .setPositiveButton("Salva", null)
-            .apply { if(existing!=null) setNeutralButton("Elimina", null) }.create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if ((itemType!="EMAIL"&&titleF.text.toString().isBlank()) || passF.text.toString().isBlank()) return@setOnClickListener toast(if(itemType=="PIN") "Inserisci banca e PIN" else "Completa i campi richiesti")
-                if (itemType!="PIN" && userF.text.toString().isBlank()) return@setOnClickListener toast(if(itemType=="ACCOUNT"||itemType=="EMAIL") "Inserisci l’email" else "Inserisci utente o email")
+        if(itemType!="EMAIL")fields.addView(titleF);if(itemType!="PIN")fields.addView(userF);fields.addView(passF)
+        if(itemType=="PIN")fields.addView(darkActionButton("MOSTRA / NASCONDI PIN"){val visible=passF.inputType and InputType.TYPE_NUMBER_VARIATION_PASSWORD==0;passF.inputType=InputType.TYPE_CLASS_NUMBER or if(visible)InputType.TYPE_NUMBER_VARIATION_PASSWORD else InputType.TYPE_NUMBER_VARIATION_NORMAL;passF.setSelection(passF.text.length)})
+        else fields.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(darkActionButton("GENERA"){passF.setText(generatedPassword())},LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(0,0,dp(5),0)});addView(darkActionButton("COPIA"){copySecure("Password",passF.text.toString())},LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(dp(5),0,0,0)})})
+        fields.addView(darkActionButton("SALVA") save@{
+                if ((itemType!="EMAIL"&&titleF.text.toString().isBlank()) || passF.text.toString().isBlank()){toast(if(itemType=="PIN")"Inserisci banca e PIN" else "Completa i campi richiesti");return@save}
+                if(itemType!="PIN"&&userF.text.toString().isBlank()){toast(if(itemType=="ACCOUNT"||itemType=="EMAIL")"Inserisci l’email" else "Inserisci utente o email");return@save}
                 val savedTitle=if(itemType=="EMAIL")userF.text.toString()else titleF.text.toString()
                 if (existing == null) items.add(VaultItem(title=savedTitle, username=userF.text.toString(), password=passF.text.toString(), category=typeLabel, type=itemType))
                 else { existing.title=savedTitle; existing.username=userF.text.toString(); existing.password=passF.text.toString(); existing.category=typeLabel; existing.type=itemType }
-                vault.save(items); dialog.dismiss(); vaultTypeFilter=itemType; renderVault("")
-            }
-            if(existing!=null) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-                AlertDialog.Builder(this).setTitle("Eliminare ${existing.title}?").setNegativeButton("No",null).setPositiveButton("Elimina") { _,_-> items.remove(existing); vault.save(items); dialog.dismiss(); renderVault("") }.show()
-            }
-        }; dialog.show();dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.rgb(62,55,174));dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.rgb(90,90,110))
+                vault.save(items);vaultTypeFilter=itemType;renderVault("")
+        });fields.addView(darkTextButton("ANNULLA"){renderVault("")})
+        if(existing!=null){var confirm=false;val delete=darkTextButton("ELIMINA"){};delete.setOnClickListener{if(!confirm){confirm=true;delete.text="TOCCA ANCORA PER ELIMINARE";delete.setTextColor(Color.rgb(255,120,110))}else{items.remove(existing);vault.save(items);renderVault("")}};fields.addView(delete)}
+        setDarkScreen(box,false)
     }
 
     private fun showGeneratedPassword() {
@@ -356,6 +370,9 @@ class MainActivity : AppCompatActivity() {
     }
     private fun dialogField(hint:String,value:String)=EditText(this).apply { this.hint=hint; setText(value); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY); setPadding(18,20,18,20) }
     private fun styledDialogField(hint:String,value:String)=dialogField(hint,value).apply{background=GradientDrawable().apply{setColor(Color.rgb(248,247,252));cornerRadius=dp(16).toFloat();setStroke(dp(1),Color.rgb(218,216,231))};layoutParams=LinearLayout.LayoutParams(-1,dp(58)).apply{setMargins(0,dp(5),0,dp(5))};setPadding(dp(18),0,dp(18),0)}
+    private fun darkEditorField(hint:String,value:String)=EditText(this).apply{this.hint=hint;setText(value);textSize=16f;setTextColor(Color.WHITE);setHintTextColor(Color.rgb(145,176,190));background=GradientDrawable().apply{setColor(Color.rgb(27,58,78));cornerRadius=dp(10).toFloat();setStroke(dp(1),Color.rgb(70,105,125))};layoutParams=LinearLayout.LayoutParams(-1,dp(58)).apply{setMargins(0,dp(6),0,dp(6))};setPadding(dp(16),0,dp(16),0)}
+    private fun darkActionButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=13f;setTextColor(Color.rgb(17,38,55));setBackgroundColor(Color.rgb(151,220,239));cornerRadius=dp(9);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(-1,dp(50)).apply{setMargins(0,dp(10),0,0)}}
+    private fun darkTextButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=13f;setTextColor(Color.rgb(153,219,239));setBackgroundColor(Color.TRANSPARENT);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(-1,dp(48)).apply{setMargins(0,dp(5),0,0)}}
     private fun smallButton(text:String, action:()->Unit)=MaterialButton(this).apply { this.text=text; textSize=11f; setOnClickListener{action()}; setTextColor(Color.WHITE); setBackgroundColor(blue) }
     private fun compactDialogButton(text:String,action:()->Unit)=smallButton(text,action).apply{maxLines=1;isSingleLine=true;insetTop=0;insetBottom=0;setPadding(dp(8),0,dp(8),0)}
     private fun toast(message:String)=Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
