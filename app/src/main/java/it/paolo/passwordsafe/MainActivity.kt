@@ -149,14 +149,13 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = Color.rgb(49,45,157)
         val body = column().apply { setPadding(30,26,30,30) }
         val hero = LinearLayout(this).apply {
-            orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(34,34,28,34)
+            orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(dp(24),dp(20),dp(22),dp(20))
             background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(Color.rgb(54,50,166),Color.rgb(89,72,194))).apply{cornerRadius=38f}
             val words=LinearLayout(this@MainActivity).apply {
                 orientation=LinearLayout.VERTICAL
-                addView(TextView(this@MainActivity).apply{text="La mia\ncassaforte";textSize=31f;setTextColor(Color.WHITE);setTypeface(typeface,1)})
-                addView(TextView(this@MainActivity).apply{text="✓  ${items.size} ${if(items.size==1) "elemento salvato" else "elementi salvati"}";textSize=15f;setTextColor(Color.rgb(235,233,255));setPadding(0,12,0,0)})
+                addView(TextView(this@MainActivity).apply{text="Cassaforte";textSize=25f;setTextColor(Color.WHITE);setTypeface(typeface,1)})
             }
-            addView(words,LinearLayout.LayoutParams(0,-2,1f));addView(TextView(this@MainActivity).apply{text="🔐";textSize=58f;gravity=Gravity.CENTER})
+            addView(words,LinearLayout.LayoutParams(0,-2,1f));addView(TextView(this@MainActivity).apply{text="🔐";textSize=42f;gravity=Gravity.CENTER})
         }
         body.addView(hero,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,14)})
         val search=EditText(this).apply {
@@ -169,8 +168,6 @@ class MainActivity : AppCompatActivity() {
         categories.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(categoryTile("👤","Account",items.count{it.type=="ACCOUNT"},"ACCOUNT",Color.rgb(238,236,255)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(0,0,dp(5),dp(5))});addView(categoryTile("•••","PIN",items.count{it.type=="PIN"},"PIN",Color.rgb(255,237,232)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(5),0,0,dp(5))})})
         categories.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(categoryTile("🔒","Login",items.count{it.type=="LOGIN"},"LOGIN",Color.rgb(230,248,239)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(0,dp(5),dp(5),0)});addView(categoryTile("✉","Email",items.count{it.type=="EMAIL"},"EMAIL",Color.rgb(255,246,218)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(5),dp(5),0,0)})})
         body.addView(categories,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,26)})
-        val section=when(vaultTypeFilter){"ACCOUNT"->"I tuoi account";"PIN"->"I tuoi PIN";"LOGIN"->"I tuoi login";"EMAIL"->"Le tue email";else->"Tutti gli elementi"}
-        body.addView(TextView(this).apply{text=section;textSize=20f;setTextColor(Color.rgb(28,36,70));setTypeface(typeface,1);setPadding(4,0,0,10)})
         val filtered=items.filter{(vaultTypeFilter=="ALL"||it.type==vaultTypeFilter)&&(filter.isBlank()||listOf(it.title,it.username,it.category,it.url).any{v->v.contains(filter,true)})}
         if(filtered.isEmpty())body.addView(TextView(this).apply{text=if(items.isEmpty())"🔐\n\nLa cassaforte è vuota\nPremi + per iniziare." else "Nessun risultato";gravity=Gravity.CENTER;textSize=18f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
         filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemCard(it))}
