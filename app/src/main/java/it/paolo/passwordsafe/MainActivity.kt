@@ -9,6 +9,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -22,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private val blue = Color.rgb(22, 93, 255)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
         security = SecurityStore(this)
         if (security.configured) showLogin() else showSetup()
@@ -140,10 +142,17 @@ class MainActivity : AppCompatActivity() {
     private fun field(hint: String, pin: Boolean = false): Pair<TextInputLayout, TextInputEditText> {
         val edit = TextInputEditText(this).apply {
             this.hint = hint
+            setTextColor(Color.rgb(23, 32, 51))
+            setHintTextColor(Color.rgb(92, 101, 120))
             if (pin) inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
         }
         val layout = TextInputLayout(this).apply {
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE; boxBackgroundColor = Color.WHITE
+            setBoxStrokeColorStateList(android.content.res.ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
+                intArrayOf(blue, Color.rgb(150, 158, 175))
+            ))
+            hintTextColor = android.content.res.ColorStateList.valueOf(Color.rgb(70, 80, 100))
             if (pin) endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
             addView(edit)
         }

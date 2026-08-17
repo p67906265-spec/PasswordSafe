@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PasswordSafe" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.PasswordSafe" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">@color/blue_primary</item>
         <item name="colorPrimaryVariant">@color/blue_dark</item>
         <item name="colorOnPrimary">#FFFFFF</item>
@@ -8,5 +8,7 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">@color/blue_dark</item>
         <item name="android:navigationBarColor">@color/page_background</item>
+        <item name="android:colorAccent">@color/blue_primary</item>
+        <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>

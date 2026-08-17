@@ -1,0 +1,7 @@
+PasswordSafe-release.jks
+*.jks
+*.keystore
+.gradle/
+build/
+app/build/
+local.properties
