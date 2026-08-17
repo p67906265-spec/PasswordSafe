@@ -6,92 +6,52 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.SecureRandom
 import java.util.UUID
 import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-data class VaultItem(
-    val id: String = UUID.randomUUID().toString(),
-    var title: String,
-    var username: String,
-    var password: String,
-    var url: String = "",
-    var notes: String = "",
-    var category: String = "Altro",
-    var type: String = "LOGIN"
-)
+data class VaultItem(val id:String=UUID.randomUUID().toString(),var title:String,var username:String,var password:String,var url:String="",var notes:String="",var category:String="Altro",var type:String="LOGIN")
 
-class VaultStore(private val context: Context) {
-    private val file = context.filesDir.resolve("vault.bin")
-    private val alias = "passwordsafe_vault_key"
+class VaultStore(private val context:Context){
+    private val file=context.filesDir.resolve("vault.bin")
+    private val prefs=context.getSharedPreferences("vault_security_v2",Context.MODE_PRIVATE)
+    private val legacyAlias="passwordsafe_vault_key"
+    private val biometricAlias="passwordsafe_biometric_rsa_v2"
+    private var sessionKey:ByteArray?=null
+    val modern:Boolean get()=prefs.getBoolean("modern",false)
 
-    fun load(): MutableList<VaultItem> {
-        if (!file.exists()) return mutableListOf()
-        return runCatching { fromJson(String(decryptDevice(file.readBytes()))) }.getOrDefault(mutableListOf())
-    }
+    fun loadLegacy():MutableList<VaultItem>{if(!file.exists())return mutableListOf();return fromJson(String(decryptLegacy(file.readBytes())))}
+    fun migrateLegacy(items:List<VaultItem>,masterPassword:String,recoveryCode:String){val dek=random(32);storeWrapped("password",dek,masterPassword);storeWrapped("recovery",dek,recoveryCode);runCatching{storeBiometricWrap(dek)};sessionKey=dek;prefs.edit().putBoolean("modern",true).apply();save(items)}
+    fun initialize(items:List<VaultItem>,masterPassword:String,recoveryCode:String)=migrateLegacy(items,masterPassword,recoveryCode)
+    fun unlockWithPassword(password:String):Boolean=runCatching{sessionKey=unwrap("password",password);true}.getOrDefault(false)
+    fun unlockWithRecovery(code:String):Boolean=runCatching{sessionKey=unwrap("recovery",code);true}.getOrDefault(false)
+    fun changePassword(newPassword:String){storeWrapped("password",requireNotNull(sessionKey),newPassword)}
+    fun load():MutableList<VaultItem>{val key=requireNotNull(sessionKey);if(!file.exists())return mutableListOf();return fromJson(String(decrypt(file.readBytes(),key)))}
+    fun save(items:List<VaultItem>){file.writeBytes(encrypt(toJson(items).toByteArray(),requireNotNull(sessionKey)))}
+    fun lock(){sessionKey?.fill(0);sessionKey=null}
 
-    fun save(items: List<VaultItem>) { file.writeBytes(encryptDevice(toJson(items).toByteArray())) }
+    fun biometricCipher():Cipher?=runCatching{val wrapped=unb64(prefs.getString("biometric_wrap","")!!);if(wrapped.isEmpty())return null;val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)};Cipher.getInstance("RSA/ECB/PKCS1Padding").apply{init(Cipher.DECRYPT_MODE,ks.getKey(biometricAlias,null))}}.getOrNull()
+    fun unlockWithBiometric(cipher:Cipher):Boolean=runCatching{sessionKey=cipher.doFinal(unb64(prefs.getString("biometric_wrap","")!!));true}.getOrDefault(false)
 
-    fun createBackup(items: List<VaultItem>, pin: String): ByteArray {
-        val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
-        val iv = ByteArray(12).also { SecureRandom().nextBytes(it) }
-        val key = derive(pin, salt)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, iv))
-        val encrypted = cipher.doFinal(toJson(items).toByteArray())
-        return JSONObject().put("format", 1)
-            .put("salt", b64(salt)).put("iv", b64(iv)).put("data", b64(encrypted))
-            .toString().toByteArray()
-    }
+    fun createBackup(items:List<VaultItem>,password:String):ByteArray{val salt=random(16);val key=derive(password,salt,600_000);val payload=encrypt(toJson(items).toByteArray(),key);key.fill(0);return JSONObject().put("format",2).put("iterations",600000).put("salt",b64(salt)).put("data",b64(payload)).toString().toByteArray()}
+    fun restoreBackup(bytes:ByteArray,password:String):MutableList<VaultItem>{val o=JSONObject(String(bytes));val salt=unb64(o.getString("salt"));val iterations=if(o.getInt("format")==1)250_000 else 600_000;val key=derive(password,salt,o.optInt("iterations",iterations));val clear=if(o.getInt("format")==1){val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,SecretKeySpec(key,"AES"),GCMParameterSpec(128,unb64(o.getString("iv"))));c.doFinal(unb64(o.getString("data")))}else decrypt(unb64(o.getString("data")),key);key.fill(0);return fromJson(String(clear))}
 
-    fun restoreBackup(bytes: ByteArray, pin: String): MutableList<VaultItem> {
-        val obj = JSONObject(String(bytes))
-        require(obj.getInt("format") == 1)
-        val salt = unb64(obj.getString("salt")); val iv = unb64(obj.getString("iv"))
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, derive(pin, salt), GCMParameterSpec(128, iv))
-        return fromJson(String(cipher.doFinal(unb64(obj.getString("data")))))
-    }
-
-    private fun encryptDevice(clear: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, deviceKey())
-        return cipher.iv + cipher.doFinal(clear)
-    }
-    private fun decryptDevice(data: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, deviceKey(), GCMParameterSpec(128, data.copyOfRange(0, 12)))
-        return cipher.doFinal(data.copyOfRange(12, data.size))
-    }
-    private fun deviceKey(): java.security.Key {
-        val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        ks.getKey(alias, null)?.let { return it }
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        generator.init(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
-        return generator.generateKey()
-    }
-    private fun derive(pin: String, salt: ByteArray): SecretKeySpec {
-        val spec = PBEKeySpec(pin.toCharArray(), salt, 250_000, 256)
-        val key = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
-        spec.clearPassword(); return SecretKeySpec(key, "AES")
-    }
-    private fun toJson(items: List<VaultItem>) = JSONArray().apply { items.forEach { i ->
-        put(JSONObject().put("id", i.id).put("title", i.title).put("username", i.username)
-            .put("password", i.password).put("url", i.url).put("notes", i.notes).put("category", i.category).put("type", i.type))
-    }}.toString()
-    private fun fromJson(json: String): MutableList<VaultItem> {
-        val arr = JSONArray(json); return MutableList(arr.length()) { n -> arr.getJSONObject(n).let { o ->
-            VaultItem(o.getString("id"), o.getString("title"), o.optString("username"), o.optString("password"),
-                o.optString("url"), o.optString("notes"), o.optString("category", "Altro"), o.optString("type", "LOGIN"))
-        }}
-    }
-    private fun b64(data: ByteArray) = Base64.encodeToString(data, Base64.NO_WRAP)
-    private fun unb64(data: String) = Base64.decode(data, Base64.NO_WRAP)
+    private fun storeWrapped(prefix:String,dek:ByteArray,secret:String){val salt=random(16);val key=derive(secret,salt,600_000);prefs.edit().putString("${prefix}_salt",b64(salt)).putString("${prefix}_wrap",b64(encrypt(dek,key))).apply();key.fill(0)}
+    private fun unwrap(prefix:String,secret:String):ByteArray{val salt=unb64(prefs.getString("${prefix}_salt",null)?:error("Dati mancanti"));val key=derive(secret,salt,600_000);val out=decrypt(unb64(prefs.getString("${prefix}_wrap",null)?:error("Dati mancanti")),key);key.fill(0);return out}
+    private fun storeBiometricWrap(dek:ByteArray){val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)};if(!ks.containsAlias(biometricAlias)){val builder=KeyGenParameterSpec.Builder(biometricAlias,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setKeySize(2048).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1).setUserAuthenticationRequired(true).setInvalidatedByBiometricEnrollment(true);if(android.os.Build.VERSION.SDK_INT>=30)builder.setUserAuthenticationParameters(0,KeyProperties.AUTH_BIOMETRIC_STRONG)else builder.setUserAuthenticationValidityDurationSeconds(-1);val g=KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA,"AndroidKeyStore");g.initialize(builder.build());g.generateKeyPair()};val c=Cipher.getInstance("RSA/ECB/PKCS1Padding");c.init(Cipher.ENCRYPT_MODE,ks.getCertificate(biometricAlias).publicKey);prefs.edit().putString("biometric_wrap",b64(c.doFinal(dek))).apply()}
+    private fun encrypt(clear:ByteArray,key:ByteArray):ByteArray{val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.ENCRYPT_MODE,SecretKeySpec(key,"AES"));return c.iv+c.doFinal(clear)}
+    private fun decrypt(data:ByteArray,key:ByteArray):ByteArray{require(data.size>28);val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,SecretKeySpec(key,"AES"),GCMParameterSpec(128,data.copyOfRange(0,12)));return c.doFinal(data.copyOfRange(12,data.size))}
+    private fun decryptLegacy(data:ByteArray):ByteArray{val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)};val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,ks.getKey(legacyAlias,null),GCMParameterSpec(128,data.copyOfRange(0,12)));return c.doFinal(data.copyOfRange(12,data.size))}
+    private fun derive(secret:String,salt:ByteArray,iterations:Int):ByteArray{val spec=PBEKeySpec(secret.toCharArray(),salt,iterations,256);val out=SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded;spec.clearPassword();return out}
+    private fun random(n:Int)=ByteArray(n).also{SecureRandom().nextBytes(it)}
+    private fun toJson(items:List<VaultItem>)=JSONArray().apply{items.forEach{i->put(JSONObject().put("id",i.id).put("title",i.title).put("username",i.username).put("password",i.password).put("url",i.url).put("notes",i.notes).put("category",i.category).put("type",i.type))}}.toString()
+    private fun fromJson(json:String):MutableList<VaultItem>{val a=JSONArray(json);return MutableList(a.length()){n->a.getJSONObject(n).let{o->VaultItem(o.getString("id"),o.getString("title"),o.optString("username"),o.optString("password"),o.optString("url"),o.optString("notes"),o.optString("category","Altro"),o.optString("type","LOGIN"))}}}
+    private fun b64(v:ByteArray)=Base64.encodeToString(v,Base64.NO_WRAP)
+    private fun unb64(v:String)=Base64.decode(v,Base64.NO_WRAP)
 }

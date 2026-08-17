@@ -11,6 +11,7 @@ class SecurityStore(context: Context) {
     private val prefs = context.getSharedPreferences("security", Context.MODE_PRIVATE)
 
     val configured: Boolean get() = prefs.getBoolean("configured", false)
+    val masterConfigured:Boolean get()=prefs.getBoolean("master_configured",false)
     var biometricEnabled: Boolean
         get() = prefs.getBoolean("biometric", true)
         set(value) { prefs.edit().putBoolean("biometric", value).apply() }
@@ -37,6 +38,11 @@ class SecurityStore(context: Context) {
     }
 
     fun verifyPin(pin: String): Boolean = verify(pin, "pin")
+    fun configureMaster(password:String){val s=salt();prefs.edit().putString("master_salt",s).putString("master_hash",derive(password,s)).putBoolean("master_configured",true).putInt("master_failed",0).putLong("locked_until",0).apply()}
+    fun verifyMaster(password:String)=verify(password,"master")
+    fun lockRemainingMillis()=(prefs.getLong("locked_until",0)-System.currentTimeMillis()).coerceAtLeast(0)
+    fun recordMasterSuccess(){prefs.edit().putInt("master_failed",0).putLong("locked_until",0).apply()}
+    fun recordMasterFailure():Long{val count=prefs.getInt("master_failed",0)+1;val delay=when{count>=10->30*60_000L;count>=8->5*60_000L;count>=5->30_000L;count>=3->5_000L;else->0L};prefs.edit().putInt("master_failed",count).putLong("locked_until",System.currentTimeMillis()+delay).apply();return delay}
     fun question1(): String = prefs.getString("q1", "") ?: ""
     fun question2(): String = prefs.getString("q2", "") ?: ""
     fun verifyAnswers(a1: String, a2: String): Boolean =

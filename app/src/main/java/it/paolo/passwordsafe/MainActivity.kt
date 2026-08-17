@@ -55,35 +55,28 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, true)
         security = SecurityStore(this)
         vault = VaultStore(this)
-        items = vault.load()
-        if (security.configured) showLogin() else showSetup()
+        items = mutableListOf()
+        if (security.configured || security.masterConfigured) showLogin() else showSetup()
     }
 
     private fun showSetup() {
         val body = column()
-        body.addView(title("Crea la tua cassaforte", "Scegli un PIN e due domande per recuperare l’accesso."))
-        val pin = field("PIN di 6 cifre", true)
-        val confirm = field("Ripeti il PIN", true)
-        val q1 = field("Prima domanda di sicurezza")
-        val a1 = field("Prima risposta")
-        val q2 = field("Seconda domanda di sicurezza")
-        val a2 = field("Seconda risposta")
-        listOf(pin, confirm, q1, a1, q2, a2).forEach { body.addView(it.first) }
+        body.addView(title("Crea la tua cassaforte", "Scegli una password principale di almeno 12 caratteri."))
+        val password=field("Password principale");password.second.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        val confirm=field("Ripeti la password");confirm.second.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        body.addView(password.first);body.addView(confirm.first)
         val error = errorText(); body.addView(error)
         body.addView(button("CREA CASSAFORTE") {
-            val p = pin.second.text.toString()
-            if (!p.matches(Regex("\\d{6}"))) return@button showError(error, "Il PIN deve contenere 6 cifre.")
-            if (p != confirm.second.text.toString()) return@button showError(error, "I due PIN non coincidono.")
-            val values = listOf(q1, a1, q2, a2).map { it.second.text.toString().trim() }
-            if (values.any { it.length < 3 }) return@button showError(error, "Completa entrambe le domande e le risposte.")
-            if (values[0].equals(values[2], true)) return@button showError(error, "Scegli due domande differenti.")
-            security.configure(p, values[0], values[1], values[2], values[3])
-            showVault()
+            val p=password.second.text.toString();if(!strongMasterPassword(p))return@button showError(error,"Usa almeno 12 caratteri, con maiuscola, minuscola e numero.")
+            if(p!=confirm.second.text.toString())return@button showError(error,"Le due password non coincidono.")
+            val recovery=generateRecoveryCode();security.configureMaster(p);vault.initialize(emptyList(),p,recovery);items=vault.load();showRecoveryCode(recovery)
         })
         setPage(body)
     }
 
-    private fun showLogin(tryBiometric: Boolean = true) {
+    private fun showLogin(tryBiometric:Boolean=true){if(vault.modern)showMasterLogin(tryBiometric)else showLegacyLogin(tryBiometric)}
+
+    private fun showLegacyLogin(tryBiometric: Boolean = true) {
         window.statusBarColor = Color.rgb(39,35,132)
         val body = column(Gravity.CENTER_HORIZONTAL).apply { setPadding(dp(28),dp(18),dp(28),dp(24)) }
         body.addView(TextView(this).apply{text="Cassaforte";textSize=28f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER})
@@ -93,11 +86,12 @@ class MainActivity : AppCompatActivity() {
         val pin = field("PIN di 6 cifre", true); body.addView(pin.first)
         val error = errorText(); body.addView(error)
         body.addView(button("APRI CASSAFORTE") {
+            val wait=security.lockRemainingMillis();if(wait>0)return@button showError(error,"Troppi tentativi. Riprova tra ${formatWait(wait)}.")
             if (security.verifyPin(pin.second.text.toString())) {
-                security.failedAttempts = 0; openSafe()
+                security.failedAttempts = 0;security.recordMasterSuccess();showMasterMigration()
             } else {
-                security.failedAttempts++
-                showError(error, if (security.failedAttempts >= 5) "PIN errato. Ora puoi recuperare l’accesso." else "PIN errato (${security.failedAttempts}/5).")
+                security.failedAttempts++;val delay=security.recordMasterFailure()
+                showError(error,if(delay>0)"PIN errato. Accesso sospeso per ${formatWait(delay)}." else "PIN errato.")
             }
         })
         val links=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER
@@ -105,7 +99,22 @@ class MainActivity : AppCompatActivity() {
             addView(MaterialButton(this@MainActivity).apply{text="Accesso dimenticato";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{showRecovery()}},LinearLayout.LayoutParams(0,dp(52),1f))}
         body.addView(links)
         setContentView(ScrollView(this).apply{setBackgroundColor(Color.rgb(48,43,151));addView(body)})
-        if (tryBiometric && canUseBiometric()) authenticate()
+        if (tryBiometric && canUseBiometric() && vault.modern) authenticate()
+    }
+
+    private fun showMasterLogin(tryBiometric:Boolean=true){
+        loginSafe=null
+        window.statusBarColor=Color.rgb(39,35,132);val body=column(Gravity.CENTER_HORIZONTAL).apply{setPadding(dp(28),dp(36),dp(28),dp(24))}
+        body.addView(TextView(this).apply{text="Cassaforte";textSize=28f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER})
+        body.addView(TextView(this).apply{text="La tua sicurezza, sempre con te";textSize=14f;setTextColor(Color.rgb(215,211,255));gravity=Gravity.CENTER;setPadding(0,dp(4),0,dp(42))})
+        val password=field("Password principale");password.second.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD;body.addView(password.first)
+        val error=errorText();body.addView(error)
+        body.addView(button("APRI CASSAFORTE"){
+            val wait=security.lockRemainingMillis();if(wait>0)return@button showError(error,"Troppi tentativi. Riprova tra ${formatWait(wait)}.")
+            val value=password.second.text.toString();if(security.verifyMaster(value)&&vault.unlockWithPassword(value)){security.recordMasterSuccess();items=vault.load();openSafe()}else{val delay=security.recordMasterFailure();showError(error,if(delay>0)"Password errata. Accesso sospeso per ${formatWait(delay)}." else "Password errata.")}
+        })
+        val links=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;addView(MaterialButton(this@MainActivity).apply{text="Impronta";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{authenticate()}},LinearLayout.LayoutParams(0,dp(52),1f));addView(MaterialButton(this@MainActivity).apply{text="Codice di recupero";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{showModernRecovery()}},LinearLayout.LayoutParams(0,dp(52),1f))};body.addView(links)
+        setContentView(ScrollView(this).apply{setBackgroundColor(Color.rgb(48,43,151));addView(body)});if(tryBiometric&&canUseBiometric())authenticate()
     }
 
     private fun openSafe() {
@@ -117,11 +126,12 @@ class MainActivity : AppCompatActivity() {
         if (!canUseBiometric()) return showLogin(false)
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { openSafe() }
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { val cipher=result.cryptoObject?.cipher;if(cipher!=null&&vault.unlockWithBiometric(cipher)){items=vault.load();openSafe()}else showMasterLogin(false) }
             })
+        val cipher=vault.biometricCipher()?:return showMasterLogin(false)
         prompt.authenticate(BiometricPrompt.PromptInfo.Builder()
             .setTitle("Sblocca Password Safe").setSubtitle("Usa l’impronta digitale")
-            .setNegativeButtonText("Usa PIN").build())
+            .setNegativeButtonText("Usa password").build(),BiometricPrompt.CryptoObject(cipher))
     }
 
     private fun canUseBiometric() = security.biometricEnabled &&
@@ -134,11 +144,39 @@ class MainActivity : AppCompatActivity() {
         body.addView(a1.first); body.addView(a2.first)
         val error = errorText(); body.addView(error)
         body.addView(button("VERIFICA RISPOSTE") {
-            if (security.verifyAnswers(a1.second.text.toString(), a2.second.text.toString())) showNewPin()
+            if (security.verifyAnswers(a1.second.text.toString(), a2.second.text.toString())) showMasterMigration()
             else showError(error, "Una o entrambe le risposte non sono corrette.")
         })
         body.addView(button("INDIETRO") { showLogin(false) })
         setPage(body)
+    }
+
+    private fun showMasterMigration(){
+        val legacy=runCatching{vault.loadLegacy()}.getOrElse{return toast("Impossibile leggere la vecchia cassaforte")}
+        val body=column();body.addView(title("Aggiornamento sicurezza","Crea la nuova password principale. Le password salvate verranno convertite automaticamente."))
+        val p1=field("Nuova password principale");p1.second.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        val p2=field("Ripeti la password");p2.second.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        body.addView(p1.first);body.addView(p2.first);val error=errorText();body.addView(error)
+        body.addView(button("CONVERTI CASSAFORTE") migrate@{val p=p1.second.text.toString();if(!strongMasterPassword(p)){showError(error,"Usa almeno 12 caratteri, con maiuscola, minuscola e numero.");return@migrate};if(p!=p2.second.text.toString()){showError(error,"Le due password non coincidono.");return@migrate};val recovery=generateRecoveryCode();vault.migrateLegacy(legacy,p,recovery);security.configureMaster(p);items=vault.load();showRecoveryCode(recovery)})
+        setPage(body)
+    }
+
+    private fun showRecoveryCode(code:String){
+        val body=column();body.addView(title("Codice di recupero","Conservalo fuori dal telefono. Servirà se dimentichi la password principale."))
+        body.addView(TextView(this).apply{text=code;textSize=22f;setTextColor(Color.rgb(23,32,51));setTypeface(typeface,1);gravity=Gravity.CENTER;setPadding(dp(12),dp(26),dp(12),dp(26));setTextIsSelectable(true)})
+        body.addView(button("COPIA CODICE"){copySecure("Codice di recupero",code)});body.addView(button("HO SALVATO IL CODICE"){showVault()});setPage(body)
+    }
+
+    private fun showModernRecovery(){
+        val body=column();body.addView(title("Recupera la cassaforte","Inserisci il codice di recupero e scegli una nuova password."))
+        val code=field("Codice di recupero");val p1=field("Nuova password");val p2=field("Ripeti la password");p1.second.inputType=129;p2.second.inputType=129
+        body.addView(code.first);body.addView(p1.first);body.addView(p2.first);val error=errorText();body.addView(error)
+        body.addView(button("CAMBIA PASSWORD") recover@{val p=p1.second.text.toString();if(!strongMasterPassword(p)||p!=p2.second.text.toString()){showError(error,"Controlla la nuova password: almeno 12 caratteri e i due campi uguali.");return@recover};if(!vault.unlockWithRecovery(code.second.text.toString().trim().uppercase())){showError(error,"Codice di recupero non valido.");return@recover};vault.changePassword(p);security.configureMaster(p);items=vault.load();showVault()});body.addView(button("INDIETRO"){showMasterLogin(false)});setPage(body)
+    }
+
+    private fun showChangeMasterPassword(){
+        val body=column();body.addView(title("Cambia password","Inserisci la password attuale e quella nuova."));val old=field("Password attuale");val p1=field("Nuova password");val p2=field("Ripeti nuova password");listOf(old,p1,p2).forEach{it.second.inputType=129;body.addView(it.first)};val error=errorText();body.addView(error)
+        body.addView(button("SALVA") change@{val p=p1.second.text.toString();if(!security.verifyMaster(old.second.text.toString())||!vault.unlockWithPassword(old.second.text.toString())){showError(error,"Password attuale errata.");return@change};if(!strongMasterPassword(p)||p!=p2.second.text.toString()){showError(error,"La nuova password deve avere almeno 12 caratteri e i campi devono coincidere.");return@change};vault.changePassword(p);security.configureMaster(p);items=vault.load();showSettingsMenu()});setPage(body)
     }
 
     private fun showNewPin() {
@@ -258,10 +296,10 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,0,0,dp(50));setBackgroundColor(Color.rgb(17,38,55));addView(pageHeader("Impostazioni"){showCategoryMenu()})
             addView(menuActionRow("Dashboard sicurezza","◉"){showSecurityDashboard()})
             addView(menuActionRow("Backup e ripristino","↥"){showBackupPage()})
-            addView(menuActionRow("Cambia PIN","●"){showNewPin()})
+            addView(menuActionRow("Cambia password","●"){showChangeMasterPassword()})
             addView(toggleMenuRow("Accesso con impronta","◎",security.biometricEnabled){security.biometricEnabled=it})
             addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
-            addView(menuActionRow("Blocca cassaforte","▣"){showLogin(false)})
+            addView(menuActionRow("Blocca cassaforte","▣"){vault.lock();items.clear();showLogin(false)})
         };setDarkScreen(body,false)
     }
     private fun showBackupPage(){val body=column().apply{setPadding(0,0,0,dp(50));setBackgroundColor(Color.rgb(17,38,55));addView(pageHeader("Backup e ripristino"){showSettingsMenu()});addView(infoText("Il file è cifrato e può essere salvato su Google Drive dal selettore Android."));addView(menuActionRow("Crea backup cifrato","↥"){askBackupPin()});addView(menuActionRow("Ripristina un backup","↧"){openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))})};setDarkScreen(body,false)}
@@ -349,17 +387,17 @@ class MainActivity : AppCompatActivity() {
         }.show()
     }
     private fun askBackupPin() {
-        val input=dialogField("Conferma il PIN","").apply { inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD }
-        AlertDialog.Builder(this).setTitle("Proteggi il backup").setMessage("Il backup sarà cifrato con il PIN attuale.").setView(input)
+        val box=column().apply{setPadding(dp(18),dp(8),dp(18),dp(4))};val input=dialogField("Password dedicata al backup","").apply{inputType=129};val confirm=dialogField("Ripeti la password","").apply{inputType=129};box.addView(input);box.addView(confirm)
+        AlertDialog.Builder(this).setTitle("Proteggi il backup").setMessage("Usa una password diversa da quella principale e conservala al sicuro.").setView(box)
             .setNegativeButton("Annulla",null).setPositiveButton("Continua") { _,_->
-                val pin=input.text.toString(); if(security.verifyPin(pin)) { pendingBackup=vault.createBackup(items,pin); createBackupFile.launch("PasswordSafe-backup.psafe") } else toast("PIN non corretto")
+                val password=input.text.toString();if(password.length>=12&&password==confirm.text.toString()){pendingBackup=vault.createBackup(items,password);createBackupFile.launch("PasswordSafe-backup.psafe")}else toast("La password del backup deve avere almeno 12 caratteri e coincidere")
             }.show()
     }
     private fun askRestorePin(bytes: ByteArray) {
-        val input=dialogField("PIN usato per il backup","").apply { inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD }
-        AlertDialog.Builder(this).setTitle("Ripristina backup").setMessage("Le password attuali verranno sostituite.").setView(input)
+        val input=dialogField("Password del backup","").apply { inputType=129 }
+        AlertDialog.Builder(this).setTitle("Ripristina backup").setMessage("Inserisci la password dedicata usata quando hai creato il backup.").setView(input)
             .setNegativeButton("Annulla",null).setPositiveButton("Ripristina") { _,_->
-                runCatching { vault.restoreBackup(bytes,input.text.toString()) }.onSuccess { items=it; vault.save(items); vaultTypeFilter="NONE";showCategoryMenu();toast("Backup ripristinato") }.onFailure { toast("PIN errato o backup non valido") }
+                runCatching { vault.restoreBackup(bytes,input.text.toString()) }.onSuccess { items=it; vault.save(items); vaultTypeFilter="NONE";showCategoryMenu();toast("Backup ripristinato") }.onFailure { toast("Password errata o backup non valido") }
             }.show()
     }
     private fun copySecure(label:String,value:String) {
@@ -377,6 +415,9 @@ class MainActivity : AppCompatActivity() {
     private fun compactDialogButton(text:String,action:()->Unit)=smallButton(text,action).apply{maxLines=1;isSingleLine=true;insetTop=0;insetBottom=0;setPadding(dp(8),0,dp(8),0)}
     private fun toast(message:String)=Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
     private fun dp(value:Int)=(value*resources.displayMetrics.density).toInt()
+    private fun strongMasterPassword(value:String)=value.length>=12&&value.any{it.isUpperCase()}&&value.any{it.isLowerCase()}&&value.any{it.isDigit()}
+    private fun generateRecoveryCode():String{val chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";val random=java.security.SecureRandom();return (1..6).joinToString("-"){(1..5).map{chars[random.nextInt(chars.length)]}.joinToString("")}}
+    private fun formatWait(ms:Long):String=when{ms>=60_000->"${(ms+59_999)/60_000} minuti";else->"${(ms+999)/1000} secondi"}
 
     private fun setPage(body: LinearLayout) {
         val scroll = ScrollView(this).apply { setBackgroundColor(Color.rgb(244,247,252)); addView(body) }
