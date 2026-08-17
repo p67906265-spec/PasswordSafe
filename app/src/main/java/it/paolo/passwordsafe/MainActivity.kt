@@ -20,6 +20,9 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textfield.TextInputEditText
@@ -31,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private var items = mutableListOf<VaultItem>()
     private var pendingBackup: ByteArray? = null
     private var vaultTypeFilter = "ALL"
+    private val revealedPins = mutableSetOf<String>()
     private val blue = Color.rgb(22, 93, 255)
 
     private val createBackupFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -46,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         security = SecurityStore(this)
         vault = VaultStore(this)
         items = vault.load()
@@ -172,6 +177,7 @@ class MainActivity : AppCompatActivity() {
         filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemCard(it))}
         val scroll=ScrollView(this).apply{setBackgroundColor(Color.rgb(250,248,245));addView(body)}
         val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(250,248,245));addView(scroll,LinearLayout.LayoutParams(-1,0,1f));addView(vaultBottomBar())}
+        ViewCompat.setOnApplyWindowInsetsListener(root){view,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());view.setPadding(0,bars.top,0,bars.bottom);insets}
         setContentView(root);search.setSelection(search.text.length)
     }
 
@@ -181,8 +187,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun vaultBottomBar()=LinearLayout(this).apply{
-        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(12,10,12,14);setBackgroundColor(Color.WHITE);elevation=16f
-        addView(navButton("🔐\nCassaforte"){vaultTypeFilter="ALL";renderVault("")},LinearLayout.LayoutParams(0,130,1f));addView(navButton("⚡\nGenera"){showGeneratedPassword()},LinearLayout.LayoutParams(0,130,1f));addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=32f;cornerRadius=70;setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(255,100,92));setOnClickListener{showCreateTypeMenu()}},LinearLayout.LayoutParams(130,130).apply{setMargins(8,0,8,0)});addView(navButton("⚙\nImpostazioni"){showSettingsMenu()},LinearLayout.LayoutParams(0,130,1f))
+        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(dp(6),dp(6),dp(6),dp(8));setBackgroundColor(Color.WHITE);elevation=16f
+        addView(navButton("🔐\nCassaforte"){vaultTypeFilter="ALL";renderVault("")},LinearLayout.LayoutParams(0,dp(68),1f));addView(navButton("⚡\nGenera"){showGeneratedPassword()},LinearLayout.LayoutParams(0,dp(68),1f));addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=30f;cornerRadius=dp(34);setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(255,100,92));setOnClickListener{showCreateTypeMenu()}},LinearLayout.LayoutParams(dp(66),dp(66)).apply{setMargins(dp(5),0,dp(5),0)});addView(navButton("⚙\nImpostazioni"){showSettingsMenu()},LinearLayout.LayoutParams(0,dp(68),1f))
     }
     private fun navButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=12f;setTextColor(Color.rgb(55,62,88));setBackgroundColor(Color.TRANSPARENT);setOnClickListener{action()}}
     private fun showSettingsMenu(){AlertDialog.Builder(this).setTitle("Impostazioni").setItems(arrayOf("Backup / Ripristino","Blocca cassaforte")){_,which->if(which==0)showBackupMenu()else showLogin(false)}.setNegativeButton("Chiudi",null).show()}
@@ -194,15 +200,15 @@ class MainActivity : AppCompatActivity() {
         val accent=when(item.type){"PIN"->Color.rgb(255,100,92);"ACCOUNT"->Color.rgb(70,72,205);else->Color.rgb(30,175,112)}
         box.addView(TextView(this@MainActivity).apply { text = "●  $kind"; textSize = 13f; setTextColor(accent); setTypeface(typeface,1) })
         box.addView(TextView(this@MainActivity).apply { text = item.title; textSize = 22f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1); setPadding(0,6,0,0) })
-        box.addView(TextView(this@MainActivity).apply {
-            text = if(item.type=="PIN") "✱ ✱ ✱ ✱ ✱ ✱" else item.username
+        val secretText=TextView(this@MainActivity).apply {
+            text = if(item.type=="PIN") if(revealedPins.contains(item.id)) item.password else "✱ ✱ ✱ ✱ ✱ ✱" else item.username
             textSize = 15f; setTextColor(Color.DKGRAY); setPadding(0,6,0,12)
-        })
+        };box.addView(secretText)
         val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
-        if(item.type!="PIN") actions.addView(smallButton(if(item.type=="ACCOUNT") "EMAIL" else "UTENTE") { copySecure(if(item.type=="ACCOUNT") "Email" else "Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f))
-        actions.addView(smallButton(if(item.type=="PIN") "COPIA PIN" else "PASSWORD") { copySecure(if(item.type=="PIN") "PIN" else "Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f))
-        actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f))
+        if(item.type=="PIN") actions.addView(smallButton(if(revealedPins.contains(item.id)) "NASCONDI PIN" else "MOSTRA PIN") { if(revealedPins.contains(item.id))revealedPins.remove(item.id)else revealedPins.add(item.id);renderVault("") },LinearLayout.LayoutParams(-1,dp(48)))
+        else { actions.addView(smallButton(if(item.type=="ACCOUNT") "EMAIL" else "UTENTE") { copySecure(if(item.type=="ACCOUNT") "Email" else "Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("PASSWORD") { copySecure("Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f)) }
         box.addView(actions); addView(box)
+        if(item.type=="PIN")setOnLongClickListener{showItemDialog(item);true}
         layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,10,0,14) }
     }
 
@@ -283,6 +289,7 @@ class MainActivity : AppCompatActivity() {
     private fun dialogField(hint:String,value:String)=EditText(this).apply { this.hint=hint; setText(value); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY); setPadding(18,20,18,20) }
     private fun smallButton(text:String, action:()->Unit)=MaterialButton(this).apply { this.text=text; textSize=11f; setOnClickListener{action()}; setTextColor(Color.WHITE); setBackgroundColor(blue) }
     private fun toast(message:String)=Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
+    private fun dp(value:Int)=(value*resources.displayMetrics.density).toInt()
 
     private fun setPage(body: LinearLayout) {
         val scroll = ScrollView(this).apply { setBackgroundColor(Color.rgb(244,247,252)); addView(body) }

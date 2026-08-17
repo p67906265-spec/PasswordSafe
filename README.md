@@ -1,4 +1,4 @@
-# Password Safe 0.5
+# Password Safe 0.6
 
 Prima base Android del gestore password.
 
