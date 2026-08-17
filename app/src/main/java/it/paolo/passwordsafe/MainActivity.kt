@@ -180,32 +180,32 @@ class MainActivity : AppCompatActivity() {
             addView(categoryMenuRow("Email",items.count{it.type=="EMAIL"},"EMAIL"))
             addView(menuActionRow("Impostazioni","⚙") { showSettingsMenu() })
         }
-        setDarkScreen(body)
+        setDarkScreen(body, false)
     }
 
     private fun darkHeader(label:String, back:Boolean)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(20),dp(10),dp(16),dp(16));setBackgroundColor(Color.rgb(27,52,78))
-        if(back)addView(TextView(this@MainActivity).apply{text="‹";textSize=44f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{fadeTo{showCategoryMenu()}}},LinearLayout.LayoutParams(dp(54),dp(58)))
-        addView(TextView(this@MainActivity).apply{text=label;textSize=26f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(58),1f))
-        if(!back)addView(TextView(this@MainActivity).apply{text="⚡";textSize=23f;gravity=Gravity.CENTER;setOnClickListener{showGeneratedPassword()}},LinearLayout.LayoutParams(dp(52),dp(58)))
-        if(back)addView(TextView(this@MainActivity).apply{text="⌕";textSize=34f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{showVaultSearch()}},LinearLayout.LayoutParams(dp(58),dp(58)))
+        if(back)addView(TextView(this@MainActivity).apply{text="‹";textSize=38f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{fadeTo{showCategoryMenu()}}},LinearLayout.LayoutParams(dp(48),dp(52)))
+        addView(TextView(this@MainActivity).apply{text=label;textSize=23f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))
+        if(!back)addView(TextView(this@MainActivity).apply{text="⚡";textSize=20f;gravity=Gravity.CENTER;setOnClickListener{showGeneratedPassword()}},LinearLayout.LayoutParams(dp(48),dp(52)))
+        if(back)addView(TextView(this@MainActivity).apply{text="⌕";textSize=29f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{showVaultSearch()}},LinearLayout.LayoutParams(dp(52),dp(52)))
     }
 
     private fun categoryMenuRow(label:String,count:Int,type:String)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
         background=GradientDrawable().apply{setColor(Color.rgb(31,68,98));setStroke(dp(1),Color.rgb(66,96,120))}
-        addView(TextView(this@MainActivity).apply{text=label;textSize=21f;setTextColor(Color.rgb(153,219,239));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(74),1f))
-        addView(TextView(this@MainActivity).apply{text=count.toString();textSize=14f;gravity=Gravity.CENTER;setTextColor(Color.rgb(205,225,233));background=GradientDrawable().apply{setColor(Color.rgb(73,100,120));shape=GradientDrawable.OVAL}},LinearLayout.LayoutParams(dp(38),dp(38)).apply{setMargins(0,0,dp(16),0)})
-        addView(TextView(this@MainActivity).apply{text="›";textSize=36f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(30),dp(60)))
+        addView(TextView(this@MainActivity).apply{text=label;textSize=18f;setTextColor(Color.rgb(153,219,239));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(64),1f))
+        addView(TextView(this@MainActivity).apply{text=count.toString();textSize=12f;gravity=Gravity.CENTER;setTextColor(Color.rgb(205,225,233));background=GradientDrawable().apply{setColor(Color.rgb(73,100,120));shape=GradientDrawable.OVAL}},LinearLayout.LayoutParams(dp(34),dp(34)).apply{setMargins(0,0,dp(14),0)})
+        addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(28),dp(54)))
         setOnClickListener{vaultTypeFilter=type;fadeTo{renderVault("")}}
     }
 
     private fun menuActionRow(label:String,icon:String,action:()->Unit)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
         background=GradientDrawable().apply{setColor(Color.rgb(27,58,84));setStroke(dp(1),Color.rgb(66,96,120))}
-        addView(TextView(this@MainActivity).apply{text=icon;textSize=23f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(44),dp(70)).apply{setMargins(0,0,dp(14),0)})
-        addView(TextView(this@MainActivity).apply{text=label;textSize=20f;setTextColor(Color.rgb(153,219,239));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(70),1f))
-        addView(TextView(this@MainActivity).apply{text="›";textSize=36f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(30),dp(60)))
+        addView(TextView(this@MainActivity).apply{text=icon;textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(40),dp(62)).apply{setMargins(0,0,dp(12),0)})
+        addView(TextView(this@MainActivity).apply{text=label;textSize=18f;setTextColor(Color.rgb(153,219,239));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(62),1f))
+        addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(28),dp(54)))
         setOnClickListener{action()}
     }
 
@@ -214,11 +214,11 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle("Cerca nella categoria").setView(input).setNegativeButton("Annulla",null).setPositiveButton("Cerca"){_,_->renderVault(input.text.toString().trim())}.show()
     }
 
-    private fun setDarkScreen(content:View) {
+    private fun setDarkScreen(content:View, showFab:Boolean) {
         val scroll=ScrollView(this).apply{setBackgroundColor(Color.rgb(17,38,55));addView(content)}
         val frame=FrameLayout(this).apply {
             setBackgroundColor(Color.rgb(17,38,55));addView(scroll,FrameLayout.LayoutParams(-1,-1))
-            addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=31f;cornerRadius=dp(34);setTextColor(Color.rgb(22,55,78));setBackgroundColor(Color.rgb(151,220,239));elevation=12f;setOnClickListener{showCreateTypeMenu()}},FrameLayout.LayoutParams(dp(68),dp(68),Gravity.BOTTOM or Gravity.END).apply{setMargins(0,0,dp(28),dp(28))})
+            if(showFab)addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=27f;cornerRadius=dp(30);setTextColor(Color.rgb(22,55,78));setBackgroundColor(Color.rgb(151,220,239));elevation=12f;setOnClickListener{showItemDialog(null,vaultTypeFilter)}},FrameLayout.LayoutParams(dp(60),dp(60),Gravity.BOTTOM or Gravity.END).apply{setMargins(0,0,dp(24),dp(24))})
         }
         ViewCompat.setOnApplyWindowInsetsListener(frame){view,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());view.setPadding(0,bars.top,0,bars.bottom);insets}
         setContentView(frame)
@@ -230,16 +230,16 @@ class MainActivity : AppCompatActivity() {
         val filtered=items.filter{it.type==vaultTypeFilter&&(filter.isBlank()||it.title.contains(filter,true)||it.username.contains(filter,true))}
         if(vaultTypeFilter!="NONE" && filtered.isEmpty())body.addView(TextView(this).apply{text="Nessun elemento in questa categoria";gravity=Gravity.CENTER;textSize=17f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
         filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemListRow(it))}
-        setDarkScreen(body)
+        setDarkScreen(body, true)
     }
 
     private fun itemListRow(item:VaultItem)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(18),0,dp(16),0)
         background=GradientDrawable().apply{setColor(Color.rgb(17,38,55));setStroke(dp(1),Color.rgb(60,83,101))}
         val symbol=when(item.type){"PIN"->"▦";"ACCOUNT"->"▣";"EMAIL"->"✉";else->"▢"}
-        addView(TextView(this@MainActivity).apply{text=symbol;textSize=30f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(58),dp(84)).apply{setMargins(0,0,dp(10),0)})
-        addView(TextView(this@MainActivity).apply{text=item.title;textSize=21f;maxLines=1;setTextColor(Color.WHITE);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(84),1f))
-        addView(TextView(this@MainActivity).apply{text="›";textSize=38f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(34),dp(70)))
+        addView(TextView(this@MainActivity).apply{text=symbol;textSize=25f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(52),dp(66)).apply{setMargins(0,0,dp(8),0)})
+        addView(TextView(this@MainActivity).apply{text=item.title;textSize=18f;maxLines=1;setTextColor(Color.WHITE);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(66),1f))
+        addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(30),dp(58)))
         setOnClickListener{showItemDialog(item)}
     }
 
@@ -289,7 +289,7 @@ class MainActivity : AppCompatActivity() {
         val box = column().apply{setPadding(dp(18),dp(18),dp(18),dp(8))}
         val typeLabel = when(itemType) { "PIN" -> "PIN"; "ACCOUNT" -> "Account"; "EMAIL" -> "Email"; else -> "Login" }
         val typeIcon=when(itemType){"PIN"->"•••";"ACCOUNT"->"👤";"EMAIL"->"✉";else->"🔒"}
-        box.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(22),dp(20),dp(18),dp(20));background=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(Color.rgb(62,55,174),Color.rgb(94,75,198))).apply{cornerRadius=dp(22).toFloat()};addView(TextView(this@MainActivity).apply{text=typeIcon;textSize=30f});addView(TextView(this@MainActivity).apply{text="  ${if(existing==null) "Nuovo" else "Modifica"} $typeLabel";textSize=25f;setTextColor(Color.WHITE);setTypeface(typeface,1)})},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,dp(18))})
+        box.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(20),dp(16),dp(16),dp(16));background=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(Color.rgb(62,55,174),Color.rgb(94,75,198))).apply{cornerRadius=dp(20).toFloat()};addView(TextView(this@MainActivity).apply{text=typeIcon;textSize=25f});addView(TextView(this@MainActivity).apply{text="  ${if(existing==null) "Nuovo" else "Modifica"} $typeLabel";textSize=21f;setTextColor(Color.WHITE);setTypeface(typeface,1)})},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,dp(16))})
         val titleF = styledDialogField(when(itemType) { "PIN" -> "Nome banca"; "ACCOUNT" -> "Nome account"; else -> "Nome del sito" }, existing?.title ?: "")
         val userF = styledDialogField(if(itemType=="ACCOUNT"||itemType=="EMAIL") "Email" else "Nome utente / email", existing?.username ?: "")
         val passF = styledDialogField(if(itemType=="PIN") "PIN" else "Password", existing?.password ?: "")
