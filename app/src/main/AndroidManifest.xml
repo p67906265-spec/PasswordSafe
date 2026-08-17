@@ -5,6 +5,8 @@
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
+        android:icon="@drawable/ic_safe"
+        android:roundIcon="@drawable/ic_safe"
         android:label="Password Safe"
         android:theme="@style/Theme.PasswordSafe">
         <activity

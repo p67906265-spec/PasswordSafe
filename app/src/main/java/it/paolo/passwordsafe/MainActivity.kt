@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     private var vaultTypeFilter = "ALL"
     private val revealedPins = mutableSetOf<String>()
     private val blue = Color.rgb(22, 93, 255)
+    private var loginSafe: SafeView? = null
 
     private val createBackupFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) runCatching { pendingBackup?.let { data -> contentResolver.openOutputStream(uri)?.use { it.write(data) } } }
@@ -82,29 +83,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLogin(tryBiometric: Boolean = true) {
-        val body = column(Gravity.CENTER_HORIZONTAL)
-        body.addView(title("Password Safe", "La tua cassaforte protetta"))
-        val pin = field("Inserisci il PIN", true); body.addView(pin.first)
+        window.statusBarColor = Color.rgb(39,35,132)
+        val body = column(Gravity.CENTER_HORIZONTAL).apply { setPadding(dp(28),dp(18),dp(28),dp(24)) }
+        body.addView(TextView(this).apply{text="Cassaforte";textSize=28f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER})
+        body.addView(TextView(this).apply{text="La tua sicurezza, sempre con te";textSize=14f;setTextColor(Color.rgb(215,211,255));gravity=Gravity.CENTER;setPadding(0,dp(4),0,0)})
+        loginSafe = SafeView(this)
+        body.addView(loginSafe, LinearLayout.LayoutParams(-1,dp(300)).apply{setMargins(0,dp(12),0,dp(2))})
+        val pin = field("PIN di 6 cifre", true); body.addView(pin.first)
         val error = errorText(); body.addView(error)
-        body.addView(button("SBLOCCA") {
+        body.addView(button("APRI CASSAFORTE") {
             if (security.verifyPin(pin.second.text.toString())) {
-                security.failedAttempts = 0; showVault()
+                security.failedAttempts = 0; openSafe()
             } else {
                 security.failedAttempts++
                 showError(error, if (security.failedAttempts >= 5) "PIN errato. Ora puoi recuperare l’accesso." else "PIN errato (${security.failedAttempts}/5).")
             }
         })
-        val bio = button("USA L’IMPRONTA") { authenticate() }; body.addView(bio)
-        val recover = button("PROBLEMI DI ACCESSO") { showRecovery() }; body.addView(recover)
-        setPage(body)
+        val links=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER
+            addView(MaterialButton(this@MainActivity).apply{text="Impronta";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{authenticate()}},LinearLayout.LayoutParams(0,dp(52),1f))
+            addView(MaterialButton(this@MainActivity).apply{text="Accesso dimenticato";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{showRecovery()}},LinearLayout.LayoutParams(0,dp(52),1f))}
+        body.addView(links)
+        setContentView(ScrollView(this).apply{setBackgroundColor(Color.rgb(48,43,151));addView(body)})
         if (tryBiometric && canUseBiometric()) authenticate()
+    }
+
+    private fun openSafe() {
+        val safe = loginSafe
+        if (safe == null) showVault() else safe.open { showVault() }
     }
 
     private fun authenticate() {
         if (!canUseBiometric()) return showLogin(false)
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { showVault() }
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { openSafe() }
             })
         prompt.authenticate(BiometricPrompt.PromptInfo.Builder()
             .setTitle("Sblocca Password Safe").setSubtitle("Usa l’impronta digitale")
