@@ -178,6 +178,7 @@ class MainActivity : AppCompatActivity() {
             addView(categoryMenuRow("PIN",items.count{it.type=="PIN"},"PIN"))
             addView(categoryMenuRow("Login",items.count{it.type=="LOGIN"},"LOGIN"))
             addView(categoryMenuRow("Email",items.count{it.type=="EMAIL"},"EMAIL"))
+            addView(menuActionRow("Impostazioni","⚙") { showSettingsMenu() })
         }
         setDarkScreen(body)
     }
@@ -187,16 +188,30 @@ class MainActivity : AppCompatActivity() {
         if(back)addView(TextView(this@MainActivity).apply{text="‹";textSize=44f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{fadeTo{showCategoryMenu()}}},LinearLayout.LayoutParams(dp(54),dp(58)))
         addView(TextView(this@MainActivity).apply{text=label;textSize=26f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(58),1f))
         if(!back)addView(TextView(this@MainActivity).apply{text="⚡";textSize=23f;gravity=Gravity.CENTER;setOnClickListener{showGeneratedPassword()}},LinearLayout.LayoutParams(dp(52),dp(58)))
-        addView(TextView(this@MainActivity).apply{text="⚙";textSize=25f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{showSettingsMenu()}},LinearLayout.LayoutParams(dp(52),dp(58)))
+        if(back)addView(TextView(this@MainActivity).apply{text="⌕";textSize=34f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{showVaultSearch()}},LinearLayout.LayoutParams(dp(58),dp(58)))
     }
 
     private fun categoryMenuRow(label:String,count:Int,type:String)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
         background=GradientDrawable().apply{setColor(Color.rgb(31,68,98));setStroke(dp(1),Color.rgb(66,96,120))}
-        addView(TextView(this@MainActivity).apply{text=label;textSize=23f;setTextColor(Color.rgb(153,219,239));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(92),1f))
+        addView(TextView(this@MainActivity).apply{text=label;textSize=21f;setTextColor(Color.rgb(153,219,239));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(74),1f))
         addView(TextView(this@MainActivity).apply{text=count.toString();textSize=14f;gravity=Gravity.CENTER;setTextColor(Color.rgb(205,225,233));background=GradientDrawable().apply{setColor(Color.rgb(73,100,120));shape=GradientDrawable.OVAL}},LinearLayout.LayoutParams(dp(38),dp(38)).apply{setMargins(0,0,dp(16),0)})
-        addView(TextView(this@MainActivity).apply{text="›";textSize=38f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(30),dp(70)))
+        addView(TextView(this@MainActivity).apply{text="›";textSize=36f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(30),dp(60)))
         setOnClickListener{vaultTypeFilter=type;fadeTo{renderVault("")}}
+    }
+
+    private fun menuActionRow(label:String,icon:String,action:()->Unit)=LinearLayout(this).apply {
+        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
+        background=GradientDrawable().apply{setColor(Color.rgb(27,58,84));setStroke(dp(1),Color.rgb(66,96,120))}
+        addView(TextView(this@MainActivity).apply{text=icon;textSize=23f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(44),dp(70)).apply{setMargins(0,0,dp(14),0)})
+        addView(TextView(this@MainActivity).apply{text=label;textSize=20f;setTextColor(Color.rgb(153,219,239));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(70),1f))
+        addView(TextView(this@MainActivity).apply{text="›";textSize=36f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(30),dp(60)))
+        setOnClickListener{action()}
+    }
+
+    private fun showVaultSearch() {
+        val input=dialogField("Cerca","")
+        AlertDialog.Builder(this).setTitle("Cerca nella categoria").setView(input).setNegativeButton("Annulla",null).setPositiveButton("Cerca"){_,_->renderVault(input.text.toString().trim())}.show()
     }
 
     private fun setDarkScreen(content:View) {
@@ -211,11 +226,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderVault(filter: String) {
         window.statusBarColor = Color.rgb(27,52,78)
-        val body = column().apply { setPadding(dp(18),0,dp(18),dp(110));setBackgroundColor(Color.rgb(17,38,55));addView(darkHeader(when(vaultTypeFilter){"ACCOUNT"->"Account";"PIN"->"PIN";"LOGIN"->"Login";else->"Email"},true),LinearLayout.LayoutParams(-1,-2).apply{setMargins(-dp(18),0,-dp(18),dp(12))}) }
-        val filtered=items.filter{it.type==vaultTypeFilter}
+        val body = column().apply { setPadding(0,0,0,dp(110));setBackgroundColor(Color.rgb(17,38,55));addView(darkHeader(when(vaultTypeFilter){"ACCOUNT"->"Account";"PIN"->"PIN";"LOGIN"->"Login";else->"Email"},true),LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,0)}) }
+        val filtered=items.filter{it.type==vaultTypeFilter&&(filter.isBlank()||it.title.contains(filter,true)||it.username.contains(filter,true))}
         if(vaultTypeFilter!="NONE" && filtered.isEmpty())body.addView(TextView(this).apply{text="Nessun elemento in questa categoria";gravity=Gravity.CENTER;textSize=17f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
-        filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemCard(it))}
+        filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemListRow(it))}
         setDarkScreen(body)
+    }
+
+    private fun itemListRow(item:VaultItem)=LinearLayout(this).apply {
+        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(18),0,dp(16),0)
+        background=GradientDrawable().apply{setColor(Color.rgb(17,38,55));setStroke(dp(1),Color.rgb(60,83,101))}
+        val symbol=when(item.type){"PIN"->"▦";"ACCOUNT"->"▣";"EMAIL"->"✉";else->"▢"}
+        addView(TextView(this@MainActivity).apply{text=symbol;textSize=30f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(58),dp(84)).apply{setMargins(0,0,dp(10),0)})
+        addView(TextView(this@MainActivity).apply{text=item.title;textSize=21f;maxLines=1;setTextColor(Color.WHITE);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(84),1f))
+        addView(TextView(this@MainActivity).apply{text="›";textSize=38f;gravity=Gravity.CENTER;setTextColor(Color.rgb(153,219,239))},LinearLayout.LayoutParams(dp(34),dp(70)))
+        setOnClickListener{showItemDialog(item)}
     }
 
     private fun categoryTile(label:String,count:Int,type:String,color:Int)=MaterialCardView(this).apply{
