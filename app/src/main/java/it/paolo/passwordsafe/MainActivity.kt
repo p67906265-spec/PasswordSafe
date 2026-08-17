@@ -165,12 +165,11 @@ class MainActivity : AppCompatActivity() {
             addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){};override fun afterTextChanged(s:android.text.Editable?){if(s.toString()!=filter)renderVault(s.toString())}})
         }
         body.addView(search,LinearLayout.LayoutParams(-1,-2).apply{setMargins(10,0,10,22)})
-        val categories=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER}
-        categories.addView(categoryTile("👤","Account",items.count{it.type=="ACCOUNT"},"ACCOUNT",Color.rgb(238,236,255)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(0,0,6,0)})
-        categories.addView(categoryTile("•••","PIN",items.count{it.type=="PIN"},"PIN",Color.rgb(255,237,232)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(6,0,6,0)})
-        categories.addView(categoryTile("🔒","Login",items.count{it.type=="LOGIN"},"LOGIN",Color.rgb(230,248,239)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(6,0,0,0)})
+        val categories=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        categories.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(categoryTile("👤","Account",items.count{it.type=="ACCOUNT"},"ACCOUNT",Color.rgb(238,236,255)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(0,0,dp(5),dp(5))});addView(categoryTile("•••","PIN",items.count{it.type=="PIN"},"PIN",Color.rgb(255,237,232)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(5),0,0,dp(5))})})
+        categories.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(categoryTile("🔒","Login",items.count{it.type=="LOGIN"},"LOGIN",Color.rgb(230,248,239)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(0,dp(5),dp(5),0)});addView(categoryTile("✉","Email",items.count{it.type=="EMAIL"},"EMAIL",Color.rgb(255,246,218)),LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(5),dp(5),0,0)})})
         body.addView(categories,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,26)})
-        val section=when(vaultTypeFilter){"ACCOUNT"->"I tuoi account";"PIN"->"I tuoi PIN";"LOGIN"->"I tuoi login";else->"Tutti gli elementi"}
+        val section=when(vaultTypeFilter){"ACCOUNT"->"I tuoi account";"PIN"->"I tuoi PIN";"LOGIN"->"I tuoi login";"EMAIL"->"Le tue email";else->"Tutti gli elementi"}
         body.addView(TextView(this).apply{text=section;textSize=20f;setTextColor(Color.rgb(28,36,70));setTypeface(typeface,1);setPadding(4,0,0,10)})
         val filtered=items.filter{(vaultTypeFilter=="ALL"||it.type==vaultTypeFilter)&&(filter.isBlank()||listOf(it.title,it.username,it.category,it.url).any{v->v.contains(filter,true)})}
         if(filtered.isEmpty())body.addView(TextView(this).apply{text=if(items.isEmpty())"🔐\n\nLa cassaforte è vuota\nPremi + per iniziare." else "Nessun risultato";gravity=Gravity.CENTER;textSize=18f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
@@ -196,8 +195,8 @@ class MainActivity : AppCompatActivity() {
     private fun itemCard(item: VaultItem) = MaterialCardView(this).apply {
         radius = 30f; setCardBackgroundColor(Color.WHITE); cardElevation = 5f
         val box = column().apply { setPadding(28,24,28,24) }
-        val kind = when(item.type) { "PIN" -> "PIN"; "ACCOUNT" -> "ACCOUNT"; else -> "LOGIN" }
-        val accent=when(item.type){"PIN"->Color.rgb(255,100,92);"ACCOUNT"->Color.rgb(70,72,205);else->Color.rgb(30,175,112)}
+        val kind = when(item.type) { "PIN" -> "PIN"; "ACCOUNT" -> "ACCOUNT"; "EMAIL" -> "EMAIL"; else -> "LOGIN" }
+        val accent=when(item.type){"PIN"->Color.rgb(255,100,92);"ACCOUNT"->Color.rgb(70,72,205);"EMAIL"->Color.rgb(218,155,20);else->Color.rgb(30,175,112)}
         box.addView(TextView(this@MainActivity).apply { text = "●  $kind"; textSize = 13f; setTextColor(accent); setTypeface(typeface,1) })
         box.addView(TextView(this@MainActivity).apply { text = item.title; textSize = 22f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface,1); setPadding(0,6,0,0) })
         val secretText=TextView(this@MainActivity).apply {
@@ -206,33 +205,33 @@ class MainActivity : AppCompatActivity() {
         };box.addView(secretText)
         val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
         if(item.type=="PIN") actions.addView(smallButton(if(revealedPins.contains(item.id)) "NASCONDI PIN" else "MOSTRA PIN") { if(revealedPins.contains(item.id))revealedPins.remove(item.id)else revealedPins.add(item.id);renderVault("") },LinearLayout.LayoutParams(-1,dp(48)))
-        else { actions.addView(smallButton(if(item.type=="ACCOUNT") "EMAIL" else "UTENTE") { copySecure(if(item.type=="ACCOUNT") "Email" else "Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("PASSWORD") { copySecure("Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f)) }
+        else { actions.addView(smallButton(if(item.type=="ACCOUNT"||item.type=="EMAIL") "EMAIL" else "UTENTE") { copySecure(if(item.type=="ACCOUNT"||item.type=="EMAIL") "Email" else "Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("PASSWORD") { copySecure("Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f)) }
         box.addView(actions); addView(box)
         if(item.type=="PIN")setOnLongClickListener{showItemDialog(item);true}
         layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,10,0,14) }
     }
 
     private fun showCreateTypeMenu() {
-        val labels = arrayOf("👤  Account", "💳  PIN", "🌐  Login")
+        val labels = arrayOf("👤  Account", "💳  PIN", "🌐  Login", "✉  Email")
         AlertDialog.Builder(this).setTitle("Cosa vuoi creare?").setItems(labels) { _, which ->
-            showItemDialog(null, when(which) { 0 -> "ACCOUNT"; 1 -> "PIN"; else -> "LOGIN" })
+            showItemDialog(null, when(which) { 0 -> "ACCOUNT"; 1 -> "PIN"; 2 -> "LOGIN"; else -> "EMAIL" })
         }.setNegativeButton("Annulla",null).show()
     }
 
     private fun showItemDialog(existing: VaultItem?, requestedType: String? = null) {
         val itemType = existing?.type ?: requestedType ?: "LOGIN"
         val box = column().apply{setPadding(dp(18),dp(18),dp(18),dp(8))}
-        val typeLabel = when(itemType) { "PIN" -> "PIN"; "ACCOUNT" -> "Account"; else -> "Login" }
-        val typeIcon=when(itemType){"PIN"->"•••";"ACCOUNT"->"👤";else->"🔒"}
+        val typeLabel = when(itemType) { "PIN" -> "PIN"; "ACCOUNT" -> "Account"; "EMAIL" -> "Email"; else -> "Login" }
+        val typeIcon=when(itemType){"PIN"->"•••";"ACCOUNT"->"👤";"EMAIL"->"✉";else->"🔒"}
         box.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(22),dp(20),dp(18),dp(20));background=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(Color.rgb(62,55,174),Color.rgb(94,75,198))).apply{cornerRadius=dp(22).toFloat()};addView(TextView(this@MainActivity).apply{text=typeIcon;textSize=30f});addView(TextView(this@MainActivity).apply{text="  ${if(existing==null) "Nuovo" else "Modifica"} $typeLabel";textSize=25f;setTextColor(Color.WHITE);setTypeface(typeface,1)})},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,dp(18))})
         val titleF = styledDialogField(when(itemType) { "PIN" -> "Nome banca"; "ACCOUNT" -> "Nome account"; else -> "Nome del sito" }, existing?.title ?: "")
-        val userF = styledDialogField(if(itemType=="ACCOUNT") "Email" else "Nome utente / email", existing?.username ?: "")
+        val userF = styledDialogField(if(itemType=="ACCOUNT"||itemType=="EMAIL") "Email" else "Nome utente / email", existing?.username ?: "")
         val passF = styledDialogField(if(itemType=="PIN") "PIN" else "Password", existing?.password ?: "")
         if(itemType=="PIN") passF.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-        box.addView(titleF)
+        if(itemType!="EMAIL")box.addView(titleF)
         if(itemType!="PIN") box.addView(userF)
         box.addView(passF)
-        if(itemType!="PIN") box.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(smallButton("GENERA") { passF.setText(generatedPassword()) },LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(0,0,dp(5),0)});addView(smallButton("COPIA PASSWORD") { copySecure("Password",passF.text.toString()) },LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(dp(5),0,0,0)})},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,dp(8),0,0)})
+        if(itemType!="PIN") box.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;addView(compactDialogButton("GENERA") { passF.setText(generatedPassword()) },LinearLayout.LayoutParams(0,dp(52),1f).apply{setMargins(0,0,dp(5),0)});addView(compactDialogButton("COPIA") { copySecure("Password",passF.text.toString()) },LinearLayout.LayoutParams(0,dp(52),1f).apply{setMargins(dp(5),0,0,0)})},LinearLayout.LayoutParams(-1,dp(52)).apply{setMargins(0,dp(8),0,0)})
         val dialog = AlertDialog.Builder(this)
             .setView(ScrollView(this).apply { addView(box) })
             .setNegativeButton("Annulla", null)
@@ -240,10 +239,11 @@ class MainActivity : AppCompatActivity() {
             .apply { if(existing!=null) setNeutralButton("Elimina", null) }.create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (titleF.text.toString().isBlank() || passF.text.toString().isBlank()) return@setOnClickListener toast(if(itemType=="PIN") "Inserisci banca e PIN" else "Completa nome e password")
-                if (itemType!="PIN" && userF.text.toString().isBlank()) return@setOnClickListener toast(if(itemType=="ACCOUNT") "Inserisci l’email" else "Inserisci utente o email")
-                if (existing == null) items.add(VaultItem(title=titleF.text.toString(), username=userF.text.toString(), password=passF.text.toString(), category=typeLabel, type=itemType))
-                else { existing.title=titleF.text.toString(); existing.username=userF.text.toString(); existing.password=passF.text.toString(); existing.category=typeLabel; existing.type=itemType }
+                if ((itemType!="EMAIL"&&titleF.text.toString().isBlank()) || passF.text.toString().isBlank()) return@setOnClickListener toast(if(itemType=="PIN") "Inserisci banca e PIN" else "Completa i campi richiesti")
+                if (itemType!="PIN" && userF.text.toString().isBlank()) return@setOnClickListener toast(if(itemType=="ACCOUNT"||itemType=="EMAIL") "Inserisci l’email" else "Inserisci utente o email")
+                val savedTitle=if(itemType=="EMAIL")userF.text.toString()else titleF.text.toString()
+                if (existing == null) items.add(VaultItem(title=savedTitle, username=userF.text.toString(), password=passF.text.toString(), category=typeLabel, type=itemType))
+                else { existing.title=savedTitle; existing.username=userF.text.toString(); existing.password=passF.text.toString(); existing.category=typeLabel; existing.type=itemType }
                 vault.save(items); dialog.dismiss(); renderVault("")
             }
             if(existing!=null) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
@@ -291,6 +291,7 @@ class MainActivity : AppCompatActivity() {
     private fun dialogField(hint:String,value:String)=EditText(this).apply { this.hint=hint; setText(value); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY); setPadding(18,20,18,20) }
     private fun styledDialogField(hint:String,value:String)=dialogField(hint,value).apply{background=GradientDrawable().apply{setColor(Color.rgb(248,247,252));cornerRadius=dp(16).toFloat();setStroke(dp(1),Color.rgb(218,216,231))};layoutParams=LinearLayout.LayoutParams(-1,dp(58)).apply{setMargins(0,dp(5),0,dp(5))};setPadding(dp(18),0,dp(18),0)}
     private fun smallButton(text:String, action:()->Unit)=MaterialButton(this).apply { this.text=text; textSize=11f; setOnClickListener{action()}; setTextColor(Color.WHITE); setBackgroundColor(blue) }
+    private fun compactDialogButton(text:String,action:()->Unit)=smallButton(text,action).apply{maxLines=1;isSingleLine=true;insetTop=0;insetBottom=0;setPadding(dp(8),0,dp(8),0)}
     private fun toast(message:String)=Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
     private fun dp(value:Int)=(value*resources.displayMetrics.density).toInt()
 
