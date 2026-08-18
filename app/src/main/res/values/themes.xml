@@ -1,26 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PasswordSafe" parent="Theme.MaterialComponents.NoActionBar">
-        <item name="colorPrimary">@color/iris</item>
-        <item name="colorPrimaryVariant">@color/iris_dark</item>
+    <style name="Theme.PasswordSafe" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/blue_primary</item>
+        <item name="colorPrimaryVariant">@color/blue_dark</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">@color/gold</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">@color/ink</item>
-        <item name="android:navigationBarColor">@color/ink</item>
-        <item name="android:colorAccent">@color/iris</item>
+        <item name="android:statusBarColor">@color/blue_dark</item>
+        <item name="android:navigationBarColor">@color/page_background</item>
+        <item name="android:colorAccent">@color/blue_primary</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowBackground">@color/ink</item>
-        <item name="alertDialogTheme">@style/Theme.PasswordSafe.Dialog</item>
-    </style>
-
-    <!-- Dialoghi nativi (backup, ricerca, generatore password) nello stesso tema scuro -->
-    <style name="Theme.PasswordSafe.Dialog" parent="Theme.MaterialComponents.Dialog.Alert">
-        <item name="colorPrimary">@color/iris</item>
-        <item name="colorAccent">@color/iris</item>
-        <item name="android:windowBackground">@color/surface</item>
-        <item name="android:textColorPrimary">#FFFFFF</item>
-        <item name="android:textColorSecondary">@color/text_dim</item>
     </style>
 </resources>
