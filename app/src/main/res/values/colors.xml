@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="blue_primary">#165DFF</color>
-    <color name="blue_dark">#0D3FA8</color>
-    <color name="page_background">#F4F7FC</color>
-    <color name="text_primary">#172033</color>
+    <!-- Palette unificata: vedi anche Palette.kt, usata nel codice Kotlin.
+         Questi valori restano allineati per la status bar e il tema di sistema. -->
+    <color name="ink">#14132B</color>
+    <color name="surface">#211F4B</color>
+    <color name="surface_2">#2A2870</color>
+    <color name="iris">#6F5FEA</color>
+    <color name="iris_dark">#4B3FC0</color>
+    <color name="iris_soft">#8B7DF2</color>
+    <color name="gold">#E8BE3E</color>
+    <color name="coral">#FF6B5C</color>
+    <color name="text_dim">#B6B1E8</color>
+
+    <!-- alias legacy mantenuti per compatibilità, ora puntano alla nuova palette -->
+    <color name="blue_primary">#6F5FEA</color>
+    <color name="blue_dark">#4B3FC0</color>
+    <color name="page_background">#14132B</color>
+    <color name="text_primary">#FFFFFF</color>
 </resources>
