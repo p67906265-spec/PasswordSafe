@@ -16,6 +16,8 @@ import android.widget.TextView
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.Toast
+import android.widget.CheckBox
+import android.widget.SeekBar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -331,7 +333,7 @@ class MainActivity : AppCompatActivity() {
             gravity = if(item.type=="PIN" && revealedPins.contains(item.id)) Gravity.CENTER else Gravity.START
             if(item.type=="PIN" && revealedPins.contains(item.id))setTypeface(typeface,1)
             setTextColor(Color.DKGRAY); setPadding(0,dp(8),0,dp(14))
-        }) else box.addView(TextView(this@MainActivity).apply { text="Credenziali protette";textSize=12f;setTextColor(Color.GRAY);setPadding(0,dp(4),0,dp(10)) })
+        }) else box.addView(View(this@MainActivity), LinearLayout.LayoutParams(1,dp(10)))
         val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
         if(item.type=="PIN") actions.addView(smallButton(if(revealedPins.contains(item.id)) "NASCONDI PIN" else "MOSTRA PIN") { if(revealedPins.contains(item.id))revealedPins.remove(item.id)else revealedPins.add(item.id);renderVault("") },LinearLayout.LayoutParams(-1,dp(48)))
         else { actions.addView(smallButton(if(item.type=="ACCOUNT"||item.type=="EMAIL") "EMAIL" else "UTENTE") { copySecure(if(item.type=="ACCOUNT"||item.type=="EMAIL") "Email" else "Nome utente", item.username) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("PASSWORD") { copySecure("Password", item.password) }, LinearLayout.LayoutParams(0,-2,1f));actions.addView(smallButton("APRI") { showItemDialog(item) }, LinearLayout.LayoutParams(0,-2,1f)) }
@@ -359,7 +361,7 @@ class MainActivity : AppCompatActivity() {
         if(itemType!="EMAIL")addEditorField(fields,if(itemType=="PIN")"NOME BANCA" else "TITOLO",titleF);if(itemType!="PIN")addEditorField(fields,if(itemType=="ACCOUNT"||itemType=="EMAIL")"EMAIL" else "EMAIL / UTENTE",userF);addEditorField(fields,if(itemType=="PIN")"PIN" else "PASSWORD",passF)
         if(itemType=="PIN")fields.addView(darkActionButton("MOSTRA / NASCONDI PIN"){val visible=passF.inputType and InputType.TYPE_NUMBER_VARIATION_PASSWORD==0;passF.inputType=InputType.TYPE_CLASS_NUMBER or if(visible)InputType.TYPE_NUMBER_VARIATION_PASSWORD else InputType.TYPE_NUMBER_VARIATION_NORMAL;passF.setSelection(passF.text.length)})
         else {
-            fields.addView(darkActionButton("GENERA PASSWORD"){passF.setText(generatedPassword())})
+            fields.addView(darkActionButton("GENERA PASSWORD"){showPasswordGenerator { passF.setText(it) }})
             if(existing!=null && (itemType=="ACCOUNT" || itemType=="EMAIL")) {
                 fields.addView(LinearLayout(this).apply{
                     orientation=LinearLayout.HORIZONTAL
@@ -381,14 +383,39 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showGeneratedPassword() {
-        val value = generatedPassword()
-        AlertDialog.Builder(this).setTitle("Password generata").setMessage(value).setNegativeButton("Chiudi",null)
-            .setPositiveButton("Copia") { _,_-> copySecure("Password",value) }.show()
+        showPasswordGenerator { value ->
+            AlertDialog.Builder(this).setTitle("Password generata").setMessage(value).setNegativeButton("Chiudi",null)
+                .setPositiveButton("Copia") { _,_-> copySecure("Password",value) }.show()
+        }
     }
 
-    private fun generatedPassword(): String {
-        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%&*+-_"
-        val random = java.security.SecureRandom(); return (1..20).joinToString("") { chars[random.nextInt(chars.length)].toString() }
+    private fun showPasswordGenerator(onGenerated:(String)->Unit) {
+        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(8),dp(20),0)}
+        val letters=CheckBox(this).apply{text="Lettere";isChecked=true}
+        val numbers=CheckBox(this).apply{text="Numeri";isChecked=true}
+        val symbols=CheckBox(this).apply{text="Caratteri speciali";isChecked=true}
+        val lengthLabel=TextView(this).apply{text="Lunghezza: 16";textSize=16f;setTextColor(Color.rgb(23,32,51));setPadding(0,dp(12),0,dp(4))}
+        val seek=SeekBar(this).apply{max=24;progress=8}
+        seek.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+            override fun onProgressChanged(s:SeekBar?,progress:Int,fromUser:Boolean){lengthLabel.text="Lunghezza: ${progress+8}"}
+            override fun onStartTrackingTouch(s:SeekBar?){}
+            override fun onStopTrackingTouch(s:SeekBar?){}
+        })
+        box.addView(letters);box.addView(numbers);box.addView(symbols);box.addView(lengthLabel);box.addView(seek)
+        val dialog=AlertDialog.Builder(this).setTitle("Genera password").setView(box).setNegativeButton("Annulla",null)
+            .setPositiveButton("GENERA",null).create()
+        dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+            if(!letters.isChecked&&!numbers.isChecked&&!symbols.isChecked){toast("Seleziona almeno un tipo di carattere");return@setOnClickListener}
+            val value=generatedPassword(seek.progress+8,letters.isChecked,numbers.isChecked,symbols.isChecked)
+            dialog.dismiss();onGenerated(value)
+        }}
+        dialog.show()
+    }
+
+    private fun generatedPassword(length:Int=20,letters:Boolean=true,numbers:Boolean=true,symbols:Boolean=true): String {
+        val pool=buildString{if(letters)append("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");if(numbers)append("23456789");if(symbols)append("!@#%&*+-_")}
+        val random=java.security.SecureRandom()
+        return (1..length).joinToString(""){pool[random.nextInt(pool.length)].toString()}
     }
 
     private fun showBackupMenu() {
