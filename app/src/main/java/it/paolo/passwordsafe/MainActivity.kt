@@ -109,7 +109,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showMasterLogin(tryBiometric:Boolean=true){
         loginSafe=null
-        window.statusBarColor=Color.rgb(9,7,27);val body=column(Gravity.CENTER_HORIZONTAL).apply{setPadding(dp(28),dp(26),dp(28),dp(24))}
+        window.statusBarColor=appBg();val body=column(Gravity.CENTER_HORIZONTAL).apply{setPadding(dp(28),dp(26),dp(28),dp(24))}
         // Simbolo statico: evita di avviare contemporaneamente animazione e biometria.
         body.addView(TextView(this).apply{
             text="◉";textSize=104f;setTextColor(Color.rgb(238,196,57));gravity=Gravity.CENTER
@@ -216,23 +216,30 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun isDarkTheme() = getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
+    private fun appBg() = if(isDarkTheme()) Color.rgb(9,7,27) else Color.rgb(247,247,252)
+    private fun panelBg() = if(isDarkTheme()) Color.rgb(22,16,52) else Color.rgb(255,255,255)
+    private fun cardBg() = if(isDarkTheme()) Color.rgb(38,30,83) else Color.rgb(255,255,255)
+    private fun chipBg() = if(isDarkTheme()) Color.rgb(41,32,88) else Color.rgb(238,235,248)
+    private fun primaryText() = if(isDarkTheme()) Color.WHITE else Color.rgb(24,20,40)
+    private fun secondaryText() = if(isDarkTheme()) Color.rgb(194,180,235) else Color.rgb(105,100,120)
+
     private fun showCategoryMenu() {
         window.statusBarColor=Color.rgb(9,7,27)
-        val body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.rgb(22,16,52));setPadding(dp(22),dp(22),dp(22),dp(110))}
-        body.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(TextView(this@MainActivity).apply{text="La tua cassaforte";textSize=25f;setTextColor(Color.WHITE);setTypeface(typeface,1)});addView(TextView(this@MainActivity).apply{text="${items.size} elementi salvati";textSize=13f;setTextColor(Color.rgb(194,180,235));setPadding(0,dp(2),0,0)})},LinearLayout.LayoutParams(0,-2,1f));addView(TextView(this@MainActivity).apply{text="⚙";textSize=22f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setOnClickListener{showSettingsMenu()}},LinearLayout.LayoutParams(dp(48),dp(48)))})
-        val search=darkEditorField("Cerca...","").apply{layoutParams=LinearLayout.LayoutParams(-1,dp(54)).apply{setMargins(0,dp(24),0,dp(14))}};body.addView(search)
+        val body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(panelBg());setPadding(dp(22),dp(22),dp(22),dp(110))}
+        body.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(TextView(this@MainActivity).apply{text="La tua cassaforte";textSize=25f;setTextColor(primaryText());setTypeface(typeface,1)});addView(TextView(this@MainActivity).apply{text="${items.size} elementi salvati";textSize=13f;setTextColor(secondaryText());setPadding(0,dp(2),0,0)})},LinearLayout.LayoutParams(0,-2,1f));addView(TextView(this@MainActivity).apply{text="⚙";textSize=22f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setOnClickListener{showSettingsMenu()}},LinearLayout.LayoutParams(dp(48),dp(48)))})
         val chips=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};listOf("ACCOUNT" to "Account","PIN" to "PIN","LOGIN" to "Login","EMAIL" to "Email").forEach{(type,label)->chips.addView(filterChip(label,type),LinearLayout.LayoutParams(0,dp(44),1f).apply{setMargins(dp(2),0,dp(2),0)})};body.addView(chips)
         val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(14),0,0)};body.addView(list)
-        fun refresh(query:String){list.removeAllViews();val shown=items.filter{(vaultTypeFilter=="NONE"||it.type==vaultTypeFilter)&&(query.isBlank()||it.title.contains(query,true)||it.username.contains(query,true))}.sortedBy{it.title.lowercase()};if(shown.isEmpty())list.addView(infoText("Nessun elemento trovato."))else shown.forEach{list.addView(itemListRow(it))}}
-        search.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){refresh(s?.toString().orEmpty())};override fun afterTextChanged(s:Editable?){}});refresh("");setDarkScreen(body,true)
+        fun refresh(){list.removeAllViews();val shown=items.filter{vaultTypeFilter=="NONE"||it.type==vaultTypeFilter}.sortedBy{it.title.lowercase()};if(shown.isEmpty())list.addView(infoText("Nessun elemento trovato."))else shown.forEach{list.addView(itemListRow(it))}}
+        refresh();setDarkScreen(body,true)
     }
 
-    private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=(type=="TUTTI"&&vaultTypeFilter=="NONE")||vaultTypeFilter==type;setTextColor(if(selected)Color.WHITE else Color.rgb(205,195,235));setBackgroundColor(if(selected)Color.rgb(105,87,238) else Color.rgb(41,32,88));setOnClickListener{vaultTypeFilter=if(type=="TUTTI")"NONE" else type;showCategoryMenu()}}
+    private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=(type=="TUTTI"&&vaultTypeFilter=="NONE")||vaultTypeFilter==type;setTextColor(if(selected)Color.WHITE else primaryText());setBackgroundColor(if(selected)Color.rgb(105,87,238) else chipBg());setOnClickListener{vaultTypeFilter=if(type=="TUTTI")"NONE" else type;showCategoryMenu()}}
 
     private fun darkHeader(label:String, back:Boolean)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(20),dp(10),dp(16),dp(16));setBackgroundColor(Color.rgb(27,52,78))
         if(back)addView(TextView(this@MainActivity).apply{text="‹";textSize=38f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{fadeTo{showCategoryMenu()}}},LinearLayout.LayoutParams(dp(48),dp(52)))
-        addView(TextView(this@MainActivity).apply{text=label;textSize=23f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))
+        addView(TextView(this@MainActivity).apply{text=label;textSize=23f;setTextColor(primaryText());setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))
         if(!back)addView(TextView(this@MainActivity).apply{text="⚡";textSize=20f;gravity=Gravity.CENTER;setOnClickListener{showGeneratedPassword()}},LinearLayout.LayoutParams(dp(48),dp(52)))
         if(back)addView(TextView(this@MainActivity).apply{text="⌕";textSize=29f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{showVaultSearch()}},LinearLayout.LayoutParams(dp(52),dp(52)))
     }
@@ -248,9 +255,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun menuActionRow(label:String,icon:String,action:()->Unit)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
-        background=GradientDrawable().apply{setColor(Color.rgb(28,22,62));setStroke(dp(1),Color.rgb(67,56,132))}
+        background=GradientDrawable().apply{setColor(cardBg());setStroke(dp(1),if(isDarkTheme()) Color.rgb(67,56,132) else Color.rgb(220,216,232))}
         addView(TextView(this@MainActivity).apply{text=icon;textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(40),dp(62)).apply{setMargins(0,0,dp(12),0)})
-        addView(TextView(this@MainActivity).apply{text=label;textSize=17f;setTextColor(Color.rgb(205,195,235));gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(62),1f))
+        addView(TextView(this@MainActivity).apply{text=label;textSize=17f;setTextColor(primaryText());gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(62),1f))
         addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62))},LinearLayout.LayoutParams(dp(28),dp(54)))
         setOnClickListener{action()}
     }
@@ -261,9 +268,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setDarkScreen(content:View, showFab:Boolean) {
-        val scroll=ScrollView(this).apply{setBackgroundColor(Color.rgb(9,7,27));addView(content)}
+        val scroll=ScrollView(this).apply{setBackgroundColor(appBg());addView(content)}
         val frame=FrameLayout(this).apply {
-            setBackgroundColor(Color.rgb(9,7,27));addView(scroll,FrameLayout.LayoutParams(-1,-1))
+            setBackgroundColor(appBg());addView(scroll,FrameLayout.LayoutParams(-1,-1))
             if(showFab)addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=27f;cornerRadius=dp(30);setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(105,87,238));elevation=12f;setOnClickListener{if(vaultTypeFilter=="NONE")showCreateTypeMenu()else showItemDialog(null,vaultTypeFilter)}},FrameLayout.LayoutParams(dp(60),dp(60),Gravity.BOTTOM or Gravity.END).apply{setMargins(0,0,dp(24),dp(24))})
         }
         ViewCompat.setOnApplyWindowInsetsListener(frame){view,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());view.setPadding(0,bars.top,0,bars.bottom);insets}
@@ -281,7 +288,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun itemListRow(item:VaultItem)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),0,0,0);background=GradientDrawable().apply{setColor(Color.rgb(238,199,62));cornerRadius=dp(18).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(76)).apply{setMargins(0,dp(5),0,dp(5))}
-        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),0,dp(14),0);background=GradientDrawable().apply{setColor(Color.rgb(38,30,83));cornerRadius=dp(16).toFloat()};addView(TextView(this@MainActivity).apply{text=item.title.trim().firstOrNull()?.uppercase()?:"?";textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setTypeface(typeface,1);background=GradientDrawable().apply{setColor(Color.rgb(49,40,112));cornerRadius=dp(12).toFloat()}},LinearLayout.LayoutParams(dp(50),dp(50)).apply{setMargins(0,0,dp(14),0)});addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_VERTICAL;addView(TextView(this@MainActivity).apply{text=item.title;textSize=16f;maxLines=1;setTextColor(Color.WHITE);setTypeface(typeface,1)});if(item.type!="ACCOUNT") addView(TextView(this@MainActivity).apply{text=if(item.type=="PIN")"••••••" else item.username;textSize=12f;maxLines=1;setTextColor(Color.rgb(194,180,235));setPadding(0,dp(3),0,0)})},LinearLayout.LayoutParams(0,-1,1f))},LinearLayout.LayoutParams(-1,-1))
+        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),0,dp(14),0);background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(16).toFloat()};addView(TextView(this@MainActivity).apply{text=item.title.trim().firstOrNull()?.uppercase()?:"?";textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setTypeface(typeface,1);background=GradientDrawable().apply{setColor(Color.rgb(49,40,112));cornerRadius=dp(12).toFloat()}},LinearLayout.LayoutParams(dp(50),dp(50)).apply{setMargins(0,0,dp(14),0)});addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_VERTICAL;addView(TextView(this@MainActivity).apply{text=item.title;textSize=16f;maxLines=1;setTextColor(primaryText());setTypeface(typeface,1)});if(item.type!="ACCOUNT" && item.type!="EMAIL") addView(TextView(this@MainActivity).apply{text=if(item.type=="PIN")"••••••" else item.username;textSize=12f;maxLines=1;setTextColor(secondaryText());setPadding(0,dp(3),0,0)})},LinearLayout.LayoutParams(0,-1,1f))},LinearLayout.LayoutParams(-1,-1))
         setOnClickListener{vaultTypeFilter=item.type;showItemDialog(item)}
     }
 
@@ -297,7 +304,7 @@ class MainActivity : AppCompatActivity() {
     private fun navButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;maxLines=2;minWidth=0;setPadding(0,0,0,0);setTextColor(Color.rgb(55,62,88));setBackgroundColor(Color.TRANSPARENT);setOnClickListener{action()}}
     private fun showSettingsMenu() {
         val body=column().apply {
-            setPadding(0,0,0,dp(50));setBackgroundColor(Color.rgb(22,16,52));addView(pageHeader("Impostazioni"){showCategoryMenu()})
+            setPadding(0,0,0,dp(50));setBackgroundColor(panelBg());addView(pageHeader("Impostazioni"){showCategoryMenu()})
             addView(menuActionRow("Dashboard sicurezza","◉"){showSecurityDashboard()})
             addView(menuActionRow("Backup e ripristino","↥"){showBackupPage()})
             addView(menuActionRow("Cambia password","●"){showChangeMasterPassword()})
@@ -322,7 +329,7 @@ class MainActivity : AppCompatActivity() {
     private fun securityLegend(label:String,count:Int,color:Int)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(34),dp(5),dp(34),dp(5));addView(View(this@MainActivity).apply{background=GradientDrawable().apply{setColor(color);shape=GradientDrawable.OVAL}},LinearLayout.LayoutParams(dp(14),dp(14)).apply{setMargins(0,0,dp(12),0)});addView(TextView(this@MainActivity).apply{text=label;textSize=15f;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(0,dp(36),1f));addView(TextView(this@MainActivity).apply{text=count.toString();textSize=15f;setTextColor(Color.WHITE);setTypeface(typeface,1)})}
     private fun sectionLabel(value:String)=TextView(this).apply{text=value;textSize=12f;setTextColor(Color.rgb(205,225,233));setPadding(dp(20),dp(26),dp(20),dp(12));setBackgroundColor(Color.rgb(27,52,78))}
     private fun infoText(value:String)=TextView(this).apply{text=value;textSize=13f;setTextColor(Color.rgb(180,205,216));setPadding(dp(28),dp(22),dp(28),dp(22))}
-    private fun pageHeader(label:String,onBack:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(10),dp(16),dp(16));setBackgroundColor(Color.rgb(15,11,39));addView(TextView(this@MainActivity).apply{text="‹";textSize=38f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{onBack()}},LinearLayout.LayoutParams(dp(50),dp(52)));addView(TextView(this@MainActivity).apply{text=label;textSize=22f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))}
+    private fun pageHeader(label:String,onBack:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(10),dp(16),dp(16));setBackgroundColor(appBg());addView(TextView(this@MainActivity).apply{text="‹";textSize=38f;gravity=Gravity.CENTER;setTextColor(primaryText());setOnClickListener{onBack()}},LinearLayout.LayoutParams(dp(50),dp(52)));addView(TextView(this@MainActivity).apply{text=label;textSize=22f;setTextColor(primaryText());setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))}
     private fun toggleMenuRow(label:String,icon:String,checked:Boolean,onChange:(Boolean)->Unit):View=menuActionRow("$label   ${if(checked) "Sì" else "No"}",icon){onChange(!checked);showSettingsMenu()}
 
     private fun setAppTheme(dark:Boolean){
