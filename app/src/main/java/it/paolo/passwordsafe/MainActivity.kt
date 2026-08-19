@@ -54,7 +54,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        val darkTheme = getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
+        AppCompatDelegate.setDefaultNightMode(if(darkTheme) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         security = SecurityStore(this)
@@ -302,6 +303,10 @@ class MainActivity : AppCompatActivity() {
             addView(menuActionRow("Cambia password","●"){showChangeMasterPassword()})
             addView(toggleMenuRow("Accesso con impronta","◎",security.biometricEnabled){security.biometricEnabled=it})
             addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
+            addView(sectionLabel("TEMA"))
+            val darkTheme=getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
+            addView(menuActionRow("Tema chiaro   ${if(!darkTheme) "✓" else ""}","☀"){setAppTheme(false)})
+            addView(menuActionRow("Tema scuro   ${if(darkTheme) "✓" else ""}","☾"){setAppTheme(true)})
             addView(menuActionRow("Blocca cassaforte","▣"){vault.lock();items.clear();showLogin(false)})
         };setDarkScreen(body,false)
     }
@@ -319,6 +324,12 @@ class MainActivity : AppCompatActivity() {
     private fun infoText(value:String)=TextView(this).apply{text=value;textSize=13f;setTextColor(Color.rgb(180,205,216));setPadding(dp(28),dp(22),dp(28),dp(22))}
     private fun pageHeader(label:String,onBack:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(10),dp(16),dp(16));setBackgroundColor(Color.rgb(15,11,39));addView(TextView(this@MainActivity).apply{text="‹";textSize=38f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setOnClickListener{onBack()}},LinearLayout.LayoutParams(dp(50),dp(52)));addView(TextView(this@MainActivity).apply{text=label;textSize=22f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))}
     private fun toggleMenuRow(label:String,icon:String,checked:Boolean,onChange:(Boolean)->Unit):View=menuActionRow("$label   ${if(checked) "Sì" else "No"}",icon){onChange(!checked);showSettingsMenu()}
+
+    private fun setAppTheme(dark:Boolean){
+        getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).edit().putBoolean("dark_theme",dark).apply()
+        AppCompatDelegate.setDefaultNightMode(if(dark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
+        recreate()
+    }
 
     private fun itemCard(item: VaultItem) = MaterialCardView(this).apply {
         radius = 30f; setCardBackgroundColor(Color.WHITE); cardElevation = 5f
@@ -390,25 +401,39 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPasswordGenerator(onGenerated:(String)->Unit) {
-        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(8),dp(20),0)}
-        val letters=CheckBox(this).apply{text="Lettere";isChecked=true}
-        val numbers=CheckBox(this).apply{text="Numeri";isChecked=true}
-        val symbols=CheckBox(this).apply{text="Caratteri speciali";isChecked=true}
-        val lengthLabel=TextView(this).apply{text="Lunghezza: 16";textSize=16f;setTextColor(Color.rgb(23,32,51));setPadding(0,dp(12),0,dp(4))}
-        val seek=SeekBar(this).apply{max=24;progress=8}
+        val panelBg=Color.rgb(38,31,83)
+        val textMain=Color.WHITE
+        val textSoft=Color.rgb(215,207,245)
+        val accent=Color.rgb(105,87,238)
+        val box=LinearLayout(this).apply{
+            orientation=LinearLayout.VERTICAL;setPadding(dp(22),dp(12),dp(22),dp(8))
+            background=GradientDrawable().apply{setColor(panelBg);cornerRadius=dp(22).toFloat()}
+        }
+        fun option(label:String)=CheckBox(this).apply{
+            text=label;isChecked=true;textSize=16f;setTextColor(textMain);buttonTintList=android.content.res.ColorStateList.valueOf(accent);setPadding(0,dp(5),0,dp(5))
+        }
+        val letters=option("Lettere")
+        val numbers=option("Numeri")
+        val symbols=option("Caratteri speciali")
+        val lengthLabel=TextView(this).apply{text="Lunghezza: 16";textSize=16f;setTextColor(textSoft);setPadding(0,dp(14),0,dp(6))}
+        val seek=SeekBar(this).apply{max=24;progress=8;progressTintList=android.content.res.ColorStateList.valueOf(accent);thumbTintList=android.content.res.ColorStateList.valueOf(Color.rgb(238,199,62))}
         seek.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
             override fun onProgressChanged(s:SeekBar?,progress:Int,fromUser:Boolean){lengthLabel.text="Lunghezza: ${progress+8}"}
             override fun onStartTrackingTouch(s:SeekBar?){}
             override fun onStopTrackingTouch(s:SeekBar?){}
         })
         box.addView(letters);box.addView(numbers);box.addView(symbols);box.addView(lengthLabel);box.addView(seek)
-        val dialog=AlertDialog.Builder(this).setTitle("Genera password").setView(box).setNegativeButton("Annulla",null)
-            .setPositiveButton("GENERA",null).create()
-        dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
-            if(!letters.isChecked&&!numbers.isChecked&&!symbols.isChecked){toast("Seleziona almeno un tipo di carattere");return@setOnClickListener}
-            val value=generatedPassword(seek.progress+8,letters.isChecked,numbers.isChecked,symbols.isChecked)
-            dialog.dismiss();onGenerated(value)
-        }}
+        val dialog=AlertDialog.Builder(this).setTitle("Genera password").setView(box).setNegativeButton("ANNULLA",null).setPositiveButton("GENERA",null).create()
+        dialog.setOnShowListener{
+            dialog.window?.decorView?.setBackgroundColor(Color.rgb(22,16,52))
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.rgb(194,180,235))
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.rgb(238,199,62))
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                if(!letters.isChecked&&!numbers.isChecked&&!symbols.isChecked){toast("Seleziona almeno un tipo di carattere");return@setOnClickListener}
+                val value=generatedPassword(seek.progress+8,letters.isChecked,numbers.isChecked,symbols.isChecked)
+                dialog.dismiss();onGenerated(value)
+            }
+        }
         dialog.show()
     }
 
