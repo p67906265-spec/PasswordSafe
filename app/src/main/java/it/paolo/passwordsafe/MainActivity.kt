@@ -220,11 +220,11 @@ class MainActivity : AppCompatActivity() {
         val search=darkEditorField("Cerca...","").apply{layoutParams=LinearLayout.LayoutParams(-1,dp(54)).apply{setMargins(0,dp(24),0,dp(14))}};body.addView(search)
         val chips=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};listOf("ACCOUNT" to "Account","PIN" to "PIN","LOGIN" to "Login","EMAIL" to "Email").forEach{(type,label)->chips.addView(filterChip(label,type),LinearLayout.LayoutParams(0,dp(44),1f).apply{setMargins(dp(2),0,dp(2),0)})};body.addView(chips)
         val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(14),0,0)};body.addView(list)
-        fun refresh(query:String){list.removeAllViews();if(vaultTypeFilter=="NONE")return;val shown=items.filter{it.type==vaultTypeFilter&&(query.isBlank()||it.title.contains(query,true)||it.username.contains(query,true))}.sortedBy{it.title.lowercase()};if(shown.isEmpty())list.addView(infoText("Nessun elemento trovato."))else shown.forEach{list.addView(itemListRow(it))}}
+        fun refresh(query:String){list.removeAllViews();val shown=items.filter{(vaultTypeFilter=="NONE"||it.type==vaultTypeFilter)&&(query.isBlank()||it.title.contains(query,true)||it.username.contains(query,true))}.sortedBy{it.title.lowercase()};if(shown.isEmpty())list.addView(infoText("Nessun elemento trovato."))else shown.forEach{list.addView(itemListRow(it))}}
         search.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){refresh(s?.toString().orEmpty())};override fun afterTextChanged(s:Editable?){}});refresh("");setDarkScreen(body,true)
     }
 
-    private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=vaultTypeFilter==type;alpha=if(vaultTypeFilter=="NONE"||selected)1f else .35f;setTextColor(if(selected)Color.WHITE else Color.rgb(205,195,235));setBackgroundColor(if(selected)Color.rgb(105,87,238) else Color.rgb(41,32,88));setOnClickListener{vaultTypeFilter=type;showCategoryMenu()}}
+    private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=(type=="TUTTI"&&vaultTypeFilter=="NONE")||vaultTypeFilter==type;setTextColor(if(selected)Color.WHITE else Color.rgb(205,195,235));setBackgroundColor(if(selected)Color.rgb(105,87,238) else Color.rgb(41,32,88));setOnClickListener{vaultTypeFilter=if(type=="TUTTI")"NONE" else type;showCategoryMenu()}}
 
     private fun darkHeader(label:String, back:Boolean)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(20),dp(10),dp(16),dp(16));setBackgroundColor(Color.rgb(27,52,78))
@@ -278,7 +278,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun itemListRow(item:VaultItem)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),0,0,0);background=GradientDrawable().apply{setColor(Color.rgb(238,199,62));cornerRadius=dp(18).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(76)).apply{setMargins(0,dp(5),0,dp(5))}
-        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),0,dp(14),0);background=GradientDrawable().apply{setColor(Color.rgb(38,30,83));cornerRadius=dp(16).toFloat()};addView(TextView(this@MainActivity).apply{text=item.title.trim().firstOrNull()?.uppercase()?:"?";textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setTypeface(typeface,1);background=GradientDrawable().apply{setColor(Color.rgb(49,40,112));cornerRadius=dp(12).toFloat()}},LinearLayout.LayoutParams(dp(50),dp(50)).apply{setMargins(0,0,dp(14),0)});addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_VERTICAL;addView(TextView(this@MainActivity).apply{text=item.title;textSize=16f;maxLines=1;setTextColor(Color.WHITE);setTypeface(typeface,1)});if(item.type!="EMAIL")addView(TextView(this@MainActivity).apply{text=if(item.type=="PIN")"••••••" else item.username;textSize=12f;maxLines=1;setTextColor(Color.rgb(194,180,235));setPadding(0,dp(3),0,0)})},LinearLayout.LayoutParams(0,-1,1f))},LinearLayout.LayoutParams(-1,-1))
+        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),0,dp(14),0);background=GradientDrawable().apply{setColor(Color.rgb(38,30,83));cornerRadius=dp(16).toFloat()};addView(TextView(this@MainActivity).apply{text=item.title.trim().firstOrNull()?.uppercase()?:"?";textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setTypeface(typeface,1);background=GradientDrawable().apply{setColor(Color.rgb(49,40,112));cornerRadius=dp(12).toFloat()}},LinearLayout.LayoutParams(dp(50),dp(50)).apply{setMargins(0,0,dp(14),0)});addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_VERTICAL;addView(TextView(this@MainActivity).apply{text=item.title;textSize=16f;maxLines=1;setTextColor(Color.WHITE);setTypeface(typeface,1)});if(item.type!="ACCOUNT") addView(TextView(this@MainActivity).apply{text=if(item.type=="PIN")"••••••" else item.username;textSize=12f;maxLines=1;setTextColor(Color.rgb(194,180,235));setPadding(0,dp(3),0,0)})},LinearLayout.LayoutParams(0,-1,1f))},LinearLayout.LayoutParams(-1,-1))
         setOnClickListener{vaultTypeFilter=item.type;showItemDialog(item)}
     }
 
@@ -358,7 +358,16 @@ class MainActivity : AppCompatActivity() {
         if(itemType=="PIN") passF.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
         if(itemType!="EMAIL")addEditorField(fields,if(itemType=="PIN")"NOME BANCA" else "TITOLO",titleF);if(itemType!="PIN")addEditorField(fields,if(itemType=="ACCOUNT"||itemType=="EMAIL")"EMAIL" else "EMAIL / UTENTE",userF);addEditorField(fields,if(itemType=="PIN")"PIN" else "PASSWORD",passF)
         if(itemType=="PIN")fields.addView(darkActionButton("MOSTRA / NASCONDI PIN"){val visible=passF.inputType and InputType.TYPE_NUMBER_VARIATION_PASSWORD==0;passF.inputType=InputType.TYPE_CLASS_NUMBER or if(visible)InputType.TYPE_NUMBER_VARIATION_PASSWORD else InputType.TYPE_NUMBER_VARIATION_NORMAL;passF.setSelection(passF.text.length)})
-        else fields.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;addView(darkActionButton("GENERA"){passF.setText(generatedPassword())},LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(0,0,dp(5),0)});addView(darkActionButton("COPIA"){copySecure("Password",passF.text.toString())},LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(dp(5),0,0,0)})})
+        else {
+            fields.addView(darkActionButton("GENERA PASSWORD"){passF.setText(generatedPassword())})
+            if(existing!=null && (itemType=="ACCOUNT" || itemType=="EMAIL")) {
+                fields.addView(LinearLayout(this).apply{
+                    orientation=LinearLayout.HORIZONTAL
+                    addView(darkActionButton("COPIA MAIL"){copySecure("Email",userF.text.toString())},LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(0,0,dp(5),0)})
+                    addView(darkActionButton("COPIA PASSWORD"){copySecure("Password",passF.text.toString())},LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(dp(5),0,0,0)})
+                })
+            }
+        }
         fields.addView(darkActionButton("SALVA") save@{
                 if ((itemType!="EMAIL"&&titleF.text.toString().isBlank()) || passF.text.toString().isBlank()){toast(if(itemType=="PIN")"Inserisci banca e PIN" else "Completa i campi richiesti");return@save}
                 if(itemType!="PIN"&&userF.text.toString().isBlank()){toast(if(itemType=="ACCOUNT"||itemType=="EMAIL")"Inserisci l’email" else "Inserisci utente o email");return@save}
@@ -366,7 +375,7 @@ class MainActivity : AppCompatActivity() {
                 if (existing == null) items.add(VaultItem(title=savedTitle, username=userF.text.toString(), password=passF.text.toString(), category=typeLabel, type=itemType))
                 else { existing.title=savedTitle; existing.username=userF.text.toString(); existing.password=passF.text.toString(); existing.category=typeLabel; existing.type=itemType }
                 vault.save(items);vaultTypeFilter=itemType;showCategoryMenu()
-        });fields.addView(darkTextButton(if(itemType=="PIN"||itemType=="EMAIL") "ESCI" else "ANNULLA"){showCategoryMenu()})
+        });fields.addView(darkActionButton(if(itemType=="PIN") "ESCI" else "ANNULLA"){showCategoryMenu()})
         if(existing!=null){var confirm=false;val delete=darkTextButton("Elimina elemento"){};delete.setOnClickListener{if(!confirm){confirm=true;delete.text="Tocca ancora per eliminare";delete.setTextColor(Color.rgb(255,105,105))}else{items.remove(existing);vault.save(items);showCategoryMenu()}};fields.addView(delete)}
         setDarkScreen(box,false)
     }
