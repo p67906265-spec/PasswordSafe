@@ -8,6 +8,10 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
 class SecurityStore(context: Context) {
+    // Kept for compatibility with hashes created by earlier PasswordSafe versions.
+    // Changing this value in-place would make existing PIN/master verification fail.
+    private companion object { const val LEGACY_PBKDF2_ITERATIONS = 210_000 }
+
     private val prefs = context.getSharedPreferences("security", Context.MODE_PRIVATE)
 
     val configured: Boolean get() = prefs.getBoolean("configured", false)
@@ -64,7 +68,7 @@ class SecurityStore(context: Context) {
     private fun salt(): String = ByteArray(16).also { SecureRandom().nextBytes(it) }
         .let { Base64.encodeToString(it, Base64.NO_WRAP) }
     private fun derive(value: String, salt: String): String {
-        val spec = PBEKeySpec(value.toCharArray(), Base64.decode(salt, Base64.NO_WRAP), 210_000, 256)
+        val spec = PBEKeySpec(value.toCharArray(), Base64.decode(salt, Base64.NO_WRAP), LEGACY_PBKDF2_ITERATIONS, 256)
         val bytes = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
         spec.clearPassword()
         return Base64.encodeToString(bytes, Base64.NO_WRAP)
