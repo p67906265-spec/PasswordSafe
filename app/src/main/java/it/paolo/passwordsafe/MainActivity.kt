@@ -319,7 +319,7 @@ class MainActivity : AppCompatActivity() {
     }
     private fun showBackupPage(){val body=column().apply{setPadding(0,0,0,dp(50));setBackgroundColor(panelBg());addView(pageHeader("Backup e ripristino"){showSettingsMenu()});addView(infoText("Il file è cifrato e può essere salvato su Google Drive dal selettore Android."));addView(menuActionRow("Crea backup cifrato","↥"){askBackupPin()});addView(menuActionRow("Ripristina un backup","↧"){openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))})};setDarkScreen(body,false)}
     private fun showSecurityDashboard(){
-        val protected=items.filter{it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
+        val protected=items.filter{it.type!="PIN" && it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
         val reused=protected.filter{it.password in reusedValues};val weak=protected.filter{!isStrongPassword(it.password)};val strong=protected.filter{isStrongPassword(it.password)&&it.password !in reusedValues}
         val body=column().apply{setPadding(0,0,0,dp(60));setBackgroundColor(panelBg());addView(pageHeader("Dashboard sicurezza"){showSettingsMenu()});addView(SecurityChartView(this@MainActivity).apply{setValues(strong.size,weak.size,reused.size)},LinearLayout.LayoutParams(-1,dp(190)));addView(securityLegend("Password sicure",strong.size,Color.rgb(121,166,26)));addView(securityLegend("Password deboli",weak.size,Color.rgb(205,38,38)));addView(securityLegend("Password riutilizzate",reused.size,Color.rgb(170,170,170)));addView(sectionLabel("APPROFONDIMENTI SULLA SICUREZZA"));addView(issueRow("Password deboli",weak.distinctBy{it.id},"!"));addView(issueRow("Password riutilizzate",reused.distinctBy{it.id},"↻"));addView(infoText("Il controllo avviene solo sul telefono: nessuna password viene inviata online."))};setDarkScreen(body,false)
     }
@@ -380,6 +380,19 @@ class MainActivity : AppCompatActivity() {
         if(itemType=="PIN")fields.addView(darkActionButton("MOSTRA / NASCONDI PIN"){val visible=passF.inputType and InputType.TYPE_NUMBER_VARIATION_PASSWORD==0;passF.inputType=InputType.TYPE_CLASS_NUMBER or if(visible)InputType.TYPE_NUMBER_VARIATION_PASSWORD else InputType.TYPE_NUMBER_VARIATION_NORMAL;passF.setSelection(passF.text.length)})
         else {
             fields.addView(darkActionButton("GENERA PASSWORD"){showPasswordGenerator { passF.setText(it) }})
+            fields.addView(darkActionButton("VERIFICA PASSWORD COMPROMESSA"){
+                val value=passF.text.toString()
+                if(value.isBlank()) toast("Inserisci prima una password") else {
+                    toast("Controllo in corso…")
+                    checkCompromisedPassword(value){ count ->
+                        when {
+                            count == null -> toast("Impossibile effettuare il controllo. Verifica la connessione Internet.")
+                            count > 0 -> AlertDialog.Builder(this).setTitle("Password compromessa").setMessage("Questa password compare in archivi di violazioni note $count volte. È consigliato cambiarla.").setPositiveButton("OK",null).show()
+                            else -> AlertDialog.Builder(this).setTitle("Nessuna compromissione trovata").setMessage("La password non è stata trovata nell’archivio Pwned Passwords.").setPositiveButton("OK",null).show()
+                        }
+                    }
+                }
+            })
             if(existing!=null && (itemType=="ACCOUNT" || itemType=="EMAIL")) {
                 fields.addView(LinearLayout(this).apply{
                     orientation=LinearLayout.HORIZONTAL
@@ -442,6 +455,32 @@ class MainActivity : AppCompatActivity() {
             }
         }
         dialog.show()
+    }
+
+    private fun checkCompromisedPassword(password:String,onResult:(Int?)->Unit) {
+        Thread {
+            val result = runCatching {
+                val digest=java.security.MessageDigest.getInstance("SHA-1").digest(password.toByteArray(Charsets.UTF_8))
+                val hash=digest.joinToString(""){"%02X".format(it)}
+                val prefix=hash.substring(0,5)
+                val suffix=hash.substring(5)
+                val connection=(java.net.URL("https://api.pwnedpasswords.com/range/$prefix").openConnection() as java.net.HttpURLConnection).apply {
+                    connectTimeout=7000;readTimeout=7000;requestMethod="GET"
+                    setRequestProperty("User-Agent","PasswordSafe-Android")
+                    setRequestProperty("Add-Padding","true")
+                }
+                try {
+                    if(connection.responseCode !in 200..299) error("HTTP ${connection.responseCode}")
+                    connection.inputStream.bufferedReader().useLines { lines ->
+                        lines.mapNotNull { line ->
+                            val parts=line.trim().split(":",limit=2)
+                            if(parts.size==2 && parts[0].equals(suffix,true)) parts[1].trim().toIntOrNull() else null
+                        }.firstOrNull() ?: 0
+                    }
+                } finally { connection.disconnect() }
+            }.getOrNull()
+            runOnUiThread { onResult(result) }
+        }.start()
     }
 
     private fun generatedPassword(length:Int=20,letters:Boolean=true,numbers:Boolean=true,symbols:Boolean=true): String {
