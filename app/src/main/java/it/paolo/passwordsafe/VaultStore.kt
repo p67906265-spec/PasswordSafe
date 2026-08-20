@@ -1,6 +1,5 @@
 package it.paolo.passwordsafe
 
-import android.app.backup.BackupManager
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -41,7 +40,7 @@ class VaultStore(private val context:Context){
     fun unlockWithRecovery(code:String):Boolean=runCatching{sessionKey=unwrap("recovery",code);true}.getOrDefault(false)
     fun changePassword(newPassword:String){storeWrapped("password",requireNotNull(sessionKey),newPassword)}
     fun load():MutableList<VaultItem>{val key=requireNotNull(sessionKey);if(!file.exists())return mutableListOf();return fromJson(String(decrypt(file.readBytes(),key)))}
-    fun save(items:List<VaultItem>){file.writeBytes(encrypt(toJson(items).toByteArray(),requireNotNull(sessionKey)));runCatching{BackupManager(context).dataChanged()}}
+    fun save(items:List<VaultItem>){file.writeBytes(encrypt(toJson(items).toByteArray(),requireNotNull(sessionKey)))}
     fun lock(){sessionKey?.fill(0);sessionKey=null}
     fun isUnlocked():Boolean=sessionKey!=null
 
@@ -51,7 +50,7 @@ class VaultStore(private val context:Context){
     fun createBackup(items:List<VaultItem>,password:String):ByteArray{val salt=random(16);val key=derive(password,salt,MASTER_PBKDF2_ITERATIONS);val payload=encrypt(toJson(items).toByteArray(),key);key.fill(0);return JSONObject().put("format",2).put("iterations",MASTER_PBKDF2_ITERATIONS).put("salt",b64(salt)).put("data",b64(payload)).toString().toByteArray()}
     fun restoreBackup(bytes:ByteArray,password:String):MutableList<VaultItem>{val o=JSONObject(String(bytes));val salt=unb64(o.getString("salt"));val iterations=if(o.getInt("format")==1) LEGACY_BACKUP_PBKDF2_ITERATIONS else MASTER_PBKDF2_ITERATIONS;val key=derive(password,salt,o.optInt("iterations",iterations));val clear=if(o.getInt("format")==1){val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,SecretKeySpec(key,"AES"),GCMParameterSpec(128,unb64(o.getString("iv"))));c.doFinal(unb64(o.getString("data")))}else decrypt(unb64(o.getString("data")),key);key.fill(0);return fromJson(String(clear))}
 
-    private fun storeWrapped(prefix:String,dek:ByteArray,secret:String){val salt=random(16);val key=derive(secret,salt,MASTER_PBKDF2_ITERATIONS);prefs.edit().putString("${prefix}_salt",b64(salt)).putString("${prefix}_wrap",b64(encrypt(dek,key))).apply();key.fill(0);runCatching{BackupManager(context).dataChanged()}}
+    private fun storeWrapped(prefix:String,dek:ByteArray,secret:String){val salt=random(16);val key=derive(secret,salt,MASTER_PBKDF2_ITERATIONS);prefs.edit().putString("${prefix}_salt",b64(salt)).putString("${prefix}_wrap",b64(encrypt(dek,key))).apply();key.fill(0)}
     private fun unwrap(prefix:String,secret:String):ByteArray{val salt=unb64(prefs.getString("${prefix}_salt",null)?:error("Dati mancanti"));val key=derive(secret,salt,MASTER_PBKDF2_ITERATIONS);val out=decrypt(unb64(prefs.getString("${prefix}_wrap",null)?:error("Dati mancanti")),key);key.fill(0);return out}
     private fun storeBiometricWrap(dek:ByteArray){val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)};if(!ks.containsAlias(biometricAlias)){val builder=KeyGenParameterSpec.Builder(biometricAlias,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setKeySize(2048).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1).setUserAuthenticationRequired(true).setInvalidatedByBiometricEnrollment(true);if(android.os.Build.VERSION.SDK_INT>=30)builder.setUserAuthenticationParameters(0,KeyProperties.AUTH_BIOMETRIC_STRONG)else builder.setUserAuthenticationValidityDurationSeconds(-1);val g=KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA,"AndroidKeyStore");g.initialize(builder.build());g.generateKeyPair()};val c=Cipher.getInstance("RSA/ECB/PKCS1Padding");c.init(Cipher.ENCRYPT_MODE,ks.getCertificate(biometricAlias).publicKey);prefs.edit().putString("biometric_wrap",b64(c.doFinal(dek))).apply()}
     private fun encrypt(clear:ByteArray,key:ByteArray):ByteArray{val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.ENCRYPT_MODE,SecretKeySpec(key,"AES"));return c.iv+c.doFinal(clear)}
