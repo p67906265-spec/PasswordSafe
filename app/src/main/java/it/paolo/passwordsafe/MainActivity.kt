@@ -1080,15 +1080,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        fun addCompactAction(label:String, action:()->Unit) {
+            val btn = darkActionButton(label, action).apply { textSize = 12f }
+            fields.addView(btn, LinearLayout.LayoutParams(-1, dp(44)).apply {
+                setMargins(dp(18), dp(8), dp(18), 0)
+            })
+        }
+
         if (itemType == "PIN") {
-            fields.addView(darkActionButton("MOSTRA / NASCONDI PIN") {
+            addCompactAction("MOSTRA / NASCONDI PIN") {
                 val hidden = passF.inputType and InputType.TYPE_NUMBER_VARIATION_PASSWORD != 0
                 passF.inputType = InputType.TYPE_CLASS_NUMBER or if (hidden) InputType.TYPE_NUMBER_VARIATION_NORMAL else InputType.TYPE_NUMBER_VARIATION_PASSWORD
                 passF.setSelection(passF.text.length)
-            })
+            }
         } else {
-            fields.addView(darkActionButton("GENERA PASSWORD") { showPasswordGenerator { passF.setText(it) } })
-            fields.addView(darkActionButton("VERIFICA PASSWORD COMPROMESSA") {
+            addCompactAction("GENERA PASSWORD") { showPasswordGenerator { passF.setText(it) } }
+            addCompactAction("VERIFICA PASSWORD COMPROMESSA") {
                 val value = passF.text.toString()
                 if (value.isBlank()) {
                     toast("Inserisci prima una password")
@@ -1110,17 +1117,23 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-            })
-            if (existing != null && (itemType == "ACCOUNT" || itemType == "EMAIL")) {
+            }
+            if (existing != null && (itemType == "ACCOUNT" || itemType == "EMAIL" || itemType == "LOGIN")) {
                 fields.addView(LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
-                    addView(darkActionButton("COPIA MAIL") { copySecure("Email", userF.text.toString()) }, LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(0, 0, dp(5), 0) })
-                    addView(darkActionButton("COPIA PASSWORD") { copySecure("Password", passF.text.toString()) }, LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(dp(5), 0, 0, 0) })
+                    setPadding(dp(18), dp(8), dp(18), 0)
+                    val accountLabel = if (itemType == "ACCOUNT" || itemType == "EMAIL") "COPIA ACCOUNT" else "COPIA ACCOUNT"
+                    addView(darkActionButton(accountLabel) {
+                        copySecure(if (itemType == "ACCOUNT" || itemType == "EMAIL") "Account / email" else "Account", userF.text.toString())
+                    }.apply { textSize = 12f }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(0, 0, dp(5), 0) })
+                    addView(darkActionButton("COPIA PASSWORD") {
+                        copySecure("Password", passF.text.toString())
+                    }.apply { textSize = 12f }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(dp(5), 0, 0, 0) })
                 })
             }
         }
 
-        fields.addView(darkActionButton("SALVA") save@{
+        addCompactAction("SALVA") save@{
             if ((itemType != "EMAIL" && titleF.text.toString().isBlank()) || passF.text.toString().isBlank()) {
                 toast(if (itemType == "PIN") "Inserisci banca e PIN" else "Completa i campi richiesti")
                 return@save
@@ -1153,7 +1166,7 @@ class MainActivity : AppCompatActivity() {
             vaultTypeFilter = itemType
             showCategoryMenu()
         })
-        fields.addView(darkActionButton(if (itemType == "PIN") "ESCI" else "ANNULLA") { showCategoryMenu() })
+        addCompactAction(if (itemType == "PIN") "ESCI" else "ANNULLA") { showCategoryMenu() }
         if (existing != null) addDeleteButton(fields, existing)
         setDarkScreen(box, false)
     }
