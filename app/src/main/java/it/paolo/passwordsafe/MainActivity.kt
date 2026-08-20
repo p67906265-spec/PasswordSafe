@@ -431,6 +431,19 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        // Pulsante principale "App": raccoglie solo le app che abbiamo scelto
+        // e alle quali abbiamo già associato almeno una credenziale.
+        body.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, 0)
+            addView(Space(this@MainActivity), LinearLayout.LayoutParams(0, dp(94), 1f))
+            addView(categoryIconButton("App", "APP", "📱"), LinearLayout.LayoutParams(0, dp(94), 1f).apply {
+                setMargins(dp(5), 0, dp(5), 0)
+            })
+            addView(Space(this@MainActivity), LinearLayout.LayoutParams(0, dp(94), 1f))
+        })
+
         val list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(18), 0, 0)
@@ -491,7 +504,14 @@ class MainActivity : AppCompatActivity() {
             setTextColor(if (selected) Color.rgb(238, 199, 62) else secondaryText())
             gravity = Gravity.CENTER
         })
-        setOnClickListener { vaultTypeFilter = type; showCategoryMenu() }
+        setOnClickListener {
+            if(type == "APP") {
+                showInstalledApps("SAVED", true)
+            } else {
+                vaultTypeFilter = type
+                showCategoryMenu()
+            }
+        }
     }
 
     private fun darkHeader(label:String, back:Boolean)=LinearLayout(this).apply {
@@ -740,7 +760,7 @@ class MainActivity : AppCompatActivity() {
             .sortedBy { it.label.lowercase() }
     }
 
-    private fun showInstalledApps(filter: String = "ALL") {
+    private fun showInstalledApps(filter: String = "ALL", fromMain: Boolean = false) {
         val allApps = installedApps()
         val savedPackages = items.mapNotNull { item -> item.appPackage.takeIf { it.isNotBlank() } }.toSet()
         val shown = when (filter) {
@@ -752,8 +772,13 @@ class MainActivity : AppCompatActivity() {
         val body = column().apply {
             setPadding(0,0,0,dp(70))
             setBackgroundColor(panelBg())
-            addView(pageHeader("App installate"){showSettingsMenu()})
-            addView(infoText("Tocca un'app per creare una credenziale collegata. Sono mostrate le app avviabili del telefono; Android non permette a PasswordSafe di leggere le password già presenti nelle altre app."))
+            addView(pageHeader(if(fromMain) "App" else "App installate"){ if(fromMain) showCategoryMenu() else showSettingsMenu() })
+            addView(infoText(
+                if(fromMain)
+                    "Qui trovi le app che hai selezionato e a cui hai associato account o password."
+                else
+                    "Tocca un'app per creare una credenziale collegata. Sono mostrate le app avviabili del telefono; Android non permette a PasswordSafe di leggere le password già presenti nelle altre app."
+            ))
         }
 
         val filters = LinearLayout(this).apply {
@@ -768,16 +793,21 @@ class MainActivity : AppCompatActivity() {
                 cornerRadius=dp(18)
                 setTextColor(if(filter==value) Color.WHITE else primaryText())
                 setBackgroundColor(if(filter==value) Color.rgb(105,87,238) else chipBg())
-                setOnClickListener { showInstalledApps(value) }
+                setOnClickListener { showInstalledApps(value, fromMain) }
             }, LinearLayout.LayoutParams(0,dp(42),1f).apply { setMargins(dp(3),0,dp(3),0) })
         }
-        addFilter("Tutte","ALL")
-        addFilter("Salvate","SAVED")
-        addFilter("Non salvate","NEW")
-        body.addView(filters)
+        if(!fromMain) {
+            addFilter("Tutte","ALL")
+            addFilter("Salvate","SAVED")
+            addFilter("Non salvate","NEW")
+            body.addView(filters)
+        }
 
         if (shown.isEmpty()) {
-            body.addView(infoText("Nessuna app in questa sezione."))
+            body.addView(infoText(
+                if(fromMain) "Non hai ancora app salvate. Vai in Impostazioni → App installate per sceglierne una."
+                else "Nessuna app in questa sezione."
+            ))
         } else {
             shown.forEach { app ->
                 val existing = items.filter { it.appPackage == app.packageName && it.type in setOf("ACCOUNT","LOGIN","EMAIL") }
