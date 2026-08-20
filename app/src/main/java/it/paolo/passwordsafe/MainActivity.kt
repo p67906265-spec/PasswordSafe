@@ -408,14 +408,14 @@ class MainActivity : AppCompatActivity() {
 
         val groups = listOf(
             listOf(
-                Triple("ACCOUNT", "Account", "👤"),
-                Triple("PIN", "PIN", "🔢"),
-                Triple("LOGIN", "Login", "🔑")
+                Triple("ACCOUNT", "Account", R.drawable.ic_account),
+                Triple("PIN", "PIN", R.drawable.ic_pin),
+                Triple("LOGIN", "Login", R.drawable.ic_login)
             ),
             listOf(
-                Triple("EMAIL", "Email", "✉️"),
-                Triple("CARD", "Carte", "💳"),
-                Triple("PASSKEY", "Passkey", "🪪")
+                Triple("EMAIL", "Email", R.drawable.ic_email),
+                Triple("CARD", "Carte", R.drawable.ic_card),
+                Triple("PASSKEY", "Passkey", R.drawable.ic_passkey)
             )
         )
         groups.forEachIndexed { rowIndex, row ->
@@ -438,7 +438,7 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, 0)
             addView(Space(this@MainActivity), LinearLayout.LayoutParams(0, dp(94), 1f))
-            addView(categoryIconButton("App", "APP", "📱"), LinearLayout.LayoutParams(0, dp(94), 1f).apply {
+            addView(categoryIconButton("App", "APP", R.drawable.ic_app), LinearLayout.LayoutParams(0, dp(94), 1f).apply {
                 setMargins(dp(5), 0, dp(5), 0)
             })
             addView(Space(this@MainActivity), LinearLayout.LayoutParams(0, dp(94), 1f))
@@ -493,7 +493,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=(type=="TUTTI"&&vaultTypeFilter=="NONE")||vaultTypeFilter==type;setTextColor(if(selected)Color.WHITE else primaryText());setBackgroundColor(if(selected)Color.rgb(105,87,238) else chipBg());setOnClickListener{vaultTypeFilter=if(type=="TUTTI")"NONE" else type;showCategoryMenu()}}
 
-    private fun categoryIconButton(label:String,type:String,icon:String)=LinearLayout(this).apply {
+    private fun categoryIconButton(label:String,type:String,iconRes:Int)=LinearLayout(this).apply {
         val selected = vaultTypeFilter == type
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
@@ -503,12 +503,14 @@ class MainActivity : AppCompatActivity() {
             cornerRadius = dp(18).toFloat()
             setStroke(dp(if (selected) 2 else 1), if (selected) Color.rgb(238, 199, 62) else if (isDarkTheme()) Color.rgb(59, 48, 116) else Color.rgb(222, 218, 235))
         }
-        addView(TextView(this@MainActivity).apply {
-            text = icon
-            textSize = 25f
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-        }, LinearLayout.LayoutParams(dp(42), dp(34)).apply { setMargins(0, 0, 0, dp(7)) })
+        addView(ImageView(this@MainActivity).apply {
+            setImageResource(iconRes)
+            imageTintList = android.content.res.ColorStateList.valueOf(
+                if (selected) Color.rgb(238, 199, 62) else Color.rgb(118, 100, 214)
+            )
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = label
+        }, LinearLayout.LayoutParams(dp(34), dp(34)).apply { setMargins(0, 0, 0, dp(7)) })
         addView(TextView(this@MainActivity).apply {
             text = label
             textSize = 12f
@@ -534,6 +536,20 @@ class MainActivity : AppCompatActivity() {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
         background=GradientDrawable().apply{setColor(cardBg());setStroke(dp(1),if(isDarkTheme()) Color.rgb(67,56,132) else Color.rgb(220,216,232))}
         addView(TextView(this@MainActivity).apply{text=icon;textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(40),dp(62)).apply{setMargins(0,0,dp(12),0)})
+        addView(TextView(this@MainActivity).apply{text=label;textSize=17f;setTextColor(primaryText());gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(62),1f))
+        addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62))},LinearLayout.LayoutParams(dp(28),dp(54)))
+        setOnClickListener{action()}
+    }
+
+    private fun menuActionRow(label:String,iconRes:Int,action:()->Unit)=LinearLayout(this).apply {
+        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
+        background=GradientDrawable().apply{setColor(cardBg());setStroke(dp(1),if(isDarkTheme()) Color.rgb(67,56,132) else Color.rgb(220,216,232))}
+        addView(ImageView(this@MainActivity).apply{
+            setImageResource(iconRes)
+            imageTintList=android.content.res.ColorStateList.valueOf(if(isDarkTheme()) Color.rgb(190,176,238) else Color.rgb(91,73,185))
+            scaleType=ImageView.ScaleType.CENTER_INSIDE
+            contentDescription=label
+        },LinearLayout.LayoutParams(dp(28),dp(62)).apply{setMargins(dp(6),0,dp(18),0)})
         addView(TextView(this@MainActivity).apply{text=label;textSize=17f;setTextColor(primaryText());gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(62),1f))
         addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62))},LinearLayout.LayoutParams(dp(28),dp(54)))
         setOnClickListener{action()}
@@ -717,9 +733,9 @@ class MainActivity : AppCompatActivity() {
             addView(toggleMenuRow("Accesso con impronta","◎",security.biometricEnabled){security.biometricEnabled=it})
             addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
             addView(menuActionRow("Compilazione automatica   ${if(isAutofillEnabled()) "✓" else ""}","↯"){openAutofillSettings()})
-            addView(menuActionRow("App installate","📱"){showInstalledApps()})
+            addView(menuActionRow("App installate",R.drawable.ic_app){showInstalledApps()})
             addView(infoText("Seleziona un'app del telefono e collega account e password. PasswordSafe non legge le password delle altre app: le inserisci tu e poi l'Autofill può proporle nell'app corretta."))
-            addView(menuActionRow("Passkey Android","🔑"){showPasskeyGuide()})
+            addView(menuActionRow("Passkey Android",R.drawable.ic_passkey){showPasskeyGuide()})
             addView(sectionLabel("TEMA"))
             val darkTheme=getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
             addView(menuActionRow("Tema chiaro   ${if(!darkTheme) "✓" else ""}","☀"){setAppTheme(false)})
@@ -913,7 +929,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCreateTypeMenu() {
-        val labels = arrayOf("👤  Account", "🔢  PIN", "🌐  Login", "✉  Email", "💳  Carta", "🔑  Passkey", "📱  Da app installata")
+        val labels = arrayOf("Account", "PIN", "Login", "Email", "Carta", "Passkey", "Da app installata")
         AlertDialog.Builder(this).setTitle("Cosa vuoi creare?").setItems(labels) { _, which ->
             if(which==6) {
                 showInstalledApps("NEW")
@@ -1360,7 +1376,7 @@ class MainActivity : AppCompatActivity() {
             addView(infoText("2. Nel sito o nell'app del servizio entra in Sicurezza e scegli Crea passkey / Aggiungi passkey."))
             addView(infoText("3. Android mostrerà il gestore credenziali. Conferma con impronta, volto o PIN del telefono."))
             addView(infoText("4. In PasswordSafe puoi salvare il nome del servizio, l'utente e dove è conservata la passkey. La chiave privata resta nel gestore Android e non viene mostrata nell'app."))
-            addView(menuActionRow("Apri gestione passkey Android","🔑"){openCredentialProviderSettings()})
+            addView(menuActionRow("Apri gestione passkey Android",R.drawable.ic_passkey){openCredentialProviderSettings()})
         }
         setDarkScreen(body,false)
     }
