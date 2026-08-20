@@ -3,6 +3,7 @@ package it.paolo.passwordsafe
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.graphics.Color
+import android.graphics.BitmapFactory
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Build
@@ -20,6 +21,7 @@ import android.view.animation.DecelerateInterpolator
 import android.view.View
 import android.view.autofill.AutofillManager
 import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.EditText
@@ -340,15 +342,41 @@ class MainActivity : AppCompatActivity() {
 
     private fun showCategoryMenu() {
         window.statusBarColor=Color.rgb(9,7,27)
-        val body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(panelBg());setPadding(dp(22),dp(22),dp(22),dp(110))}
+        val body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(appBg());setPadding(dp(22),dp(22),dp(22),dp(110))}
         body.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(TextView(this@MainActivity).apply{text="La tua cassaforte";textSize=25f;setTextColor(primaryText());setTypeface(typeface,1)});addView(TextView(this@MainActivity).apply{text="${items.size} elementi salvati";textSize=13f;setTextColor(secondaryText());setPadding(0,dp(2),0,0)})},LinearLayout.LayoutParams(0,-2,1f));addView(TextView(this@MainActivity).apply{text="⚙";textSize=22f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setOnClickListener{showSettingsMenu()}},LinearLayout.LayoutParams(dp(48),dp(48)))})
-        val chips=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};listOf("ACCOUNT" to "Account","PIN" to "PIN","LOGIN" to "Login","EMAIL" to "Email","CARD" to "Carte","PASSKEY" to "Passkey").forEach{(type,label)->chips.addView(filterChip(label,type),LinearLayout.LayoutParams(0,dp(44),1f).apply{setMargins(dp(2),0,dp(2),0)})};body.addView(chips)
+        val chips=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,dp(10),0,dp(6))}
+        listOf(
+            Triple("ACCOUNT","Account",R.drawable.ic_account),
+            Triple("PIN","PIN",R.drawable.ic_pin),
+            Triple("LOGIN","Login",R.drawable.ic_login),
+            Triple("EMAIL","Email",R.drawable.ic_email),
+            Triple("CARD","Carte",R.drawable.ic_card),
+            Triple("PASSKEY","Passkey",R.drawable.ic_passkey)
+        ).forEach{(type,label,icon)->chips.addView(categoryIconButton(label,type,icon),LinearLayout.LayoutParams(0,dp(54),1f).apply{setMargins(dp(3),0,dp(3),0)})}
+        body.addView(chips)
         val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(14),0,0)};body.addView(list)
         fun refresh(){list.removeAllViews();if(vaultTypeFilter=="NONE"){list.addView(infoText("Seleziona una categoria per visualizzare gli elementi."));return};val shown=items.filter{it.type==vaultTypeFilter}.sortedBy{it.title.lowercase()};if(shown.isEmpty())list.addView(infoText("Nessun elemento trovato."))else shown.forEach{list.addView(itemListRow(it))}}
         refresh();setDarkScreen(body,true)
     }
 
     private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=(type=="TUTTI"&&vaultTypeFilter=="NONE")||vaultTypeFilter==type;setTextColor(if(selected)Color.WHITE else primaryText());setBackgroundColor(if(selected)Color.rgb(105,87,238) else chipBg());setOnClickListener{vaultTypeFilter=if(type=="TUTTI")"NONE" else type;showCategoryMenu()}}
+
+    private fun categoryIconButton(label:String,type:String,iconRes:Int)=FrameLayout(this).apply {
+        val selected=vaultTypeFilter==type
+        contentDescription=label
+        background=GradientDrawable().apply {
+            shape=GradientDrawable.OVAL
+            setColor(if(selected) Color.rgb(105,87,238) else chipBg())
+            setStroke(dp(if(selected) 2 else 1), if(selected) Color.rgb(238,199,62) else if(isDarkTheme()) Color.rgb(59,48,116) else Color.rgb(222,218,235))
+        }
+        addView(ImageView(this@MainActivity).apply {
+            setImageResource(iconRes)
+            setColorFilter(if(selected) Color.WHITE else secondaryText())
+            scaleType=ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dp(13),dp(13),dp(13),dp(13))
+        },FrameLayout.LayoutParams(-1,-1))
+        setOnClickListener { vaultTypeFilter=type;showCategoryMenu() }
+    }
 
     private fun darkHeader(label:String, back:Boolean)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(20),dp(10),dp(16),dp(16));setBackgroundColor(if(isDarkTheme()) Color.rgb(27,52,78) else Color.rgb(238,235,248))
@@ -387,9 +415,129 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun itemListRow(item:VaultItem)=LinearLayout(this).apply {
-        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),0,0,0);background=GradientDrawable().apply{setColor(Color.rgb(238,199,62));cornerRadius=dp(18).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(76)).apply{setMargins(0,dp(5),0,dp(5))}
-        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),0,dp(14),0);background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(16).toFloat()};addView(TextView(this@MainActivity).apply{text=item.title.trim().firstOrNull()?.uppercase()?:"?";textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setTypeface(typeface,1);background=GradientDrawable().apply{setColor(Color.rgb(49,40,112));cornerRadius=dp(12).toFloat()}},LinearLayout.LayoutParams(dp(50),dp(50)).apply{setMargins(0,0,dp(14),0)});addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_VERTICAL;addView(TextView(this@MainActivity).apply{text=item.title;textSize=16f;maxLines=1;setTextColor(primaryText());setTypeface(typeface,1)});if(item.type!="ACCOUNT" && item.type!="EMAIL" && item.type!="PIN") addView(TextView(this@MainActivity).apply{text=when(item.type){"CARD" -> "•••• ${item.username.filter(Char::isDigit).takeLast(4)}";"PASSKEY" -> listOf("Passkey", item.url.ifBlank { item.username }).filter { it.isNotBlank() }.joinToString(" • "); else -> item.username};textSize=12f;maxLines=1;setTextColor(secondaryText());setPadding(0,dp(3),0,0)})},LinearLayout.LayoutParams(0,-1,1f))},LinearLayout.LayoutParams(-1,-1))
+        orientation=LinearLayout.HORIZONTAL
+        gravity=Gravity.CENTER_VERTICAL
+        setPadding(dp(5),0,0,0)
+        background=GradientDrawable().apply{setColor(Color.rgb(238,199,62));cornerRadius=dp(18).toFloat()}
+        layoutParams=LinearLayout.LayoutParams(-1,dp(76)).apply{setMargins(0,dp(5),0,dp(5))}
+
+        addView(LinearLayout(this@MainActivity).apply{
+            orientation=LinearLayout.HORIZONTAL
+            gravity=Gravity.CENTER_VERTICAL
+            setPadding(dp(14),0,dp(14),0)
+            background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(16).toFloat()}
+
+            val logoBox=FrameLayout(this@MainActivity).apply{
+                background=GradientDrawable().apply{setColor(Color.rgb(49,40,112));cornerRadius=dp(12).toFloat()}
+            }
+            val fallback=TextView(this@MainActivity).apply{
+                text=item.title.trim().firstOrNull()?.uppercase()?.toString() ?: "?"
+                textSize=20f
+                gravity=Gravity.CENTER
+                setTextColor(Color.rgb(238,199,62))
+                setTypeface(typeface,1)
+            }
+            val logo=ImageView(this@MainActivity).apply{
+                scaleType=ImageView.ScaleType.CENTER_INSIDE
+                visibility=View.GONE
+                setPadding(dp(7),dp(7),dp(7),dp(7))
+            }
+            logoBox.addView(fallback,FrameLayout.LayoutParams(-1,-1))
+            logoBox.addView(logo,FrameLayout.LayoutParams(-1,-1))
+            addView(logoBox,LinearLayout.LayoutParams(dp(50),dp(50)).apply{setMargins(0,0,dp(14),0)})
+            loadServiceLogo(item,logo,fallback)
+
+            addView(LinearLayout(this@MainActivity).apply{
+                orientation=LinearLayout.VERTICAL
+                gravity=Gravity.CENTER_VERTICAL
+                addView(TextView(this@MainActivity).apply{
+                    text=item.title;textSize=16f;maxLines=1;setTextColor(primaryText());setTypeface(typeface,1)
+                })
+                if(item.type!="ACCOUNT" && item.type!="EMAIL" && item.type!="PIN") addView(TextView(this@MainActivity).apply{
+                    text=when(item.type){
+                        "CARD" -> "•••• ${item.username.filter(Char::isDigit).takeLast(4)}"
+                        "PASSKEY" -> listOf("Passkey", item.url.ifBlank { item.username }).filter { it.isNotBlank() }.joinToString(" • ")
+                        else -> item.username
+                    }
+                    textSize=12f;maxLines=1;setTextColor(secondaryText());setPadding(0,dp(3),0,0)
+                })
+            },LinearLayout.LayoutParams(0,-1,1f))
+        },LinearLayout.LayoutParams(-1,-1))
         setOnClickListener{vaultTypeFilter=item.type;showItemDialog(item)}
+    }
+
+    private fun loadServiceLogo(item: VaultItem, image: ImageView, fallback: TextView) {
+        if (item.type == "PIN" || item.type == "CARD") return
+        val domain = serviceDomain(item) ?: return
+        val cacheFile = cacheDir.resolve("brand_${domain.hashCode().toUInt()}.png")
+        if (cacheFile.exists()) {
+            runCatching { BitmapFactory.decodeFile(cacheFile.absolutePath) }.getOrNull()?.let {
+                image.setImageBitmap(it); image.visibility=View.VISIBLE; fallback.visibility=View.GONE
+                return
+            }
+        }
+        Thread {
+            val bitmap = runCatching {
+                val connection = (java.net.URL("https://$domain/favicon.ico").openConnection() as java.net.HttpURLConnection).apply {
+                    connectTimeout=4000;readTimeout=4000;instanceFollowRedirects=true
+                    setRequestProperty("User-Agent","PasswordSafe-Android")
+                }
+                try {
+                    if(connection.responseCode !in 200..299) return@runCatching null
+                    connection.inputStream.use { BitmapFactory.decodeStream(it) }
+                } finally { connection.disconnect() }
+            }.getOrNull()
+            if(bitmap!=null){
+                runCatching { cacheFile.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) } }
+                runOnUiThread {
+                    image.setImageBitmap(bitmap);image.visibility=View.VISIBLE;fallback.visibility=View.GONE
+                }
+            }
+        }.start()
+    }
+
+    private fun serviceDomain(item: VaultItem): String? {
+        val raw=item.url.trim()
+        if(raw.isNotBlank()){
+            val candidate=runCatching {
+                val normalized=if(raw.startsWith("http://")||raw.startsWith("https://")) raw else "https://$raw"
+                Uri.parse(normalized).host?.removePrefix("www.")
+            }.getOrNull()
+            if(!candidate.isNullOrBlank()) return candidate
+        }
+        val name=item.title.lowercase().trim()
+        val known=listOf(
+            "amazon" to "amazon.it",
+            "netflix" to "netflix.com",
+            "ghost vpn" to "cyberghostvpn.com",
+            "cyberghost" to "cyberghostvpn.com",
+            "google" to "google.com",
+            "gmail" to "gmail.com",
+            "facebook" to "facebook.com",
+            "instagram" to "instagram.com",
+            "whatsapp" to "whatsapp.com",
+            "telegram" to "telegram.org",
+            "microsoft" to "microsoft.com",
+            "outlook" to "outlook.com",
+            "apple" to "apple.com",
+            "icloud" to "icloud.com",
+            "spotify" to "spotify.com",
+            "paypal" to "paypal.com",
+            "ebay" to "ebay.it",
+            "booking" to "booking.com",
+            "airbnb" to "airbnb.com",
+            "github" to "github.com",
+            "linkedin" to "linkedin.com",
+            "x / twitter" to "x.com",
+            "twitter" to "x.com",
+            "tiktok" to "tiktok.com",
+            "disney" to "disneyplus.com",
+            "prime video" to "primevideo.com",
+            "dazn" to "dazn.com",
+            "dropbox" to "dropbox.com",
+            "adobe" to "adobe.com"
+        )
+        return known.firstOrNull { name.contains(it.first) }?.second
     }
 
     private fun categoryTile(label:String,count:Int,type:String,color:Int)=MaterialCardView(this).apply{
