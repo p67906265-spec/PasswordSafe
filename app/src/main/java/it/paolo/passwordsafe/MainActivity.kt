@@ -56,7 +56,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingBackup: ByteArray? = null
     private var vaultTypeFilter = "NONE"
     private val revealedPins = mutableSetOf<String>()
-    private val blue = Color.rgb(22, 93, 255)
+    private val blue = Palette.CYAN
     private var loginSafe: SafeView? = null
     private var pendingCardNumberField: EditText? = null
     private var pendingCardExpiryField: EditText? = null
@@ -137,10 +137,10 @@ class MainActivity : AppCompatActivity() {
     private fun showLogin(tryBiometric:Boolean=true){if(vault.modern)showMasterLogin(tryBiometric)else showLegacyLogin(tryBiometric)}
 
     private fun showLegacyLogin(tryBiometric: Boolean = true) {
-        window.statusBarColor = Color.rgb(39,35,132)
+        window.statusBarColor = Palette.INK
         val body = column(Gravity.CENTER_HORIZONTAL).apply { setPadding(dp(28),dp(18),dp(28),dp(24)) }
         body.addView(TextView(this).apply{text="Cassaforte";textSize=28f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER})
-        body.addView(TextView(this).apply{text="La tua sicurezza, sempre con te";textSize=14f;setTextColor(Color.rgb(215,211,255));gravity=Gravity.CENTER;setPadding(0,dp(4),0,0)})
+        body.addView(TextView(this).apply{text="La tua sicurezza, sempre con te";textSize=14f;setTextColor(Palette.TEXT_DIM);gravity=Gravity.CENTER;setPadding(0,dp(4),0,0)})
         loginSafe = SafeView(this)
         body.addView(loginSafe, LinearLayout.LayoutParams(-1,dp(300)).apply{setMargins(0,dp(12),0,dp(2))})
         val pin = field("PIN di 6 cifre", true); body.addView(pin.first)
@@ -158,7 +158,7 @@ class MainActivity : AppCompatActivity() {
             addView(MaterialButton(this@MainActivity).apply{text="Impronta";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{authenticate()}},LinearLayout.LayoutParams(0,dp(52),1f))
             addView(MaterialButton(this@MainActivity).apply{text="Accesso dimenticato";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{showRecovery()}},LinearLayout.LayoutParams(0,dp(52),1f))}
         body.addView(links)
-        setContentView(ScrollView(this).apply{setBackgroundColor(Color.rgb(48,43,151));addView(body)})
+        setContentView(ScrollView(this).apply{setBackgroundColor(Palette.INK);addView(body)})
         if (tryBiometric && canUseBiometric() && vault.modern) authenticate()
     }
 
@@ -167,11 +167,11 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor=appBg();val body=column(Gravity.CENTER_HORIZONTAL).apply{setPadding(dp(28),dp(26),dp(28),dp(24))}
         // Simbolo statico: evita di avviare contemporaneamente animazione e biometria.
         body.addView(TextView(this).apply{
-            text="◉";textSize=104f;setTextColor(Color.rgb(238,196,57));gravity=Gravity.CENTER
+            text="◉";textSize=104f;setTextColor(Palette.CYAN);gravity=Gravity.CENTER
             setPadding(0,dp(18),0,dp(8))
         },LinearLayout.LayoutParams(-1,dp(190)))
         body.addView(TextView(this).apply{text="Cassaforte";textSize=28f;setTextColor(Color.WHITE);setTypeface(typeface,1);gravity=Gravity.CENTER})
-        body.addView(TextView(this).apply{text="La tua sicurezza, sempre con te";textSize=14f;setTextColor(Color.rgb(194,180,235));gravity=Gravity.CENTER;setPadding(0,dp(4),0,dp(28))})
+        body.addView(TextView(this).apply{text="La tua sicurezza, sempre con te";textSize=14f;setTextColor(Palette.TEXT_DIM);gravity=Gravity.CENTER;setPadding(0,dp(4),0,dp(28))})
         val password=purpleLoginField("Password principale");body.addView(password)
         val error=errorText();body.addView(error)
         body.addView(button("APRI CASSAFORTE"){
@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity() {
             val value=password.text.toString();if(security.verifyMaster(value)&&vault.unlockWithPassword(value)){security.recordMasterSuccess();items=vault.load();openSafe()}else{val delay=security.recordMasterFailure();showError(error,if(delay>0)"Password errata. Accesso sospeso per ${formatWait(delay)}." else "Password errata.")}
         })
         val links=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;addView(MaterialButton(this@MainActivity).apply{text="Impronta";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{authenticate()}},LinearLayout.LayoutParams(0,dp(52),1f));addView(MaterialButton(this@MainActivity).apply{text="Codice di recupero";isAllCaps=false;setTextColor(Color.WHITE);setBackgroundColor(Color.TRANSPARENT);setOnClickListener{showModernRecovery()}},LinearLayout.LayoutParams(0,dp(52),1f))};body.addView(links)
-        setContentView(ScrollView(this).apply{setBackgroundColor(Color.rgb(15,11,39));addView(body)});if(tryBiometric&&canUseBiometric())authenticate()
+        setContentView(ScrollView(this).apply{setBackgroundColor(Palette.INK);addView(body)});if(tryBiometric&&canUseBiometric())authenticate()
     }
 
     private fun openSafe() {
@@ -187,9 +187,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLaunchAnimation(onComplete: () -> Unit) {
-        window.statusBarColor = Color.rgb(15, 11, 39)
+        window.statusBarColor = Palette.INK
         val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.rgb(15, 11, 39))
+            setBackgroundColor(Palette.INK)
         }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -199,29 +199,29 @@ class MainActivity : AppCompatActivity() {
 
         val safeOuter = FrameLayout(this).apply {
             background = GradientDrawable().apply {
-                setColor(Color.rgb(58, 48, 128))
+                setColor(Palette.SURFACE_2)
                 cornerRadius = dp(28).toFloat()
-                setStroke(dp(3), Color.rgb(238, 199, 62))
+                setStroke(dp(3), Palette.CYAN)
             }
         }
         val safeDoor = FrameLayout(this).apply {
             pivotX = 0f
             pivotY = (dp(88)).toFloat()
             background = GradientDrawable().apply {
-                setColor(Color.rgb(38, 31, 83))
+                setColor(Palette.SURFACE_2)
                 cornerRadius = dp(22).toFloat()
-                setStroke(dp(2), Color.rgb(238, 199, 62))
+                setStroke(dp(2), Palette.CYAN)
             }
         }
         val wheel = TextView(this).apply {
             text = "✺"
             textSize = 34f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(238, 199, 62))
+            setTextColor(Palette.CYAN)
         }
         val beam = View(this).apply {
             alpha = 0f
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(Color.argb(180, 255, 241, 180), Color.TRANSPARENT)).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(Color.argb(170, 0, 212, 228), Color.TRANSPARENT)).apply {
                 cornerRadius = dp(18).toFloat()
             }
         }
@@ -236,7 +236,7 @@ class MainActivity : AppCompatActivity() {
         val subtitle = TextView(this).apply {
             text = "La tua cassaforte si apre"
             textSize = 14f
-            setTextColor(Color.rgb(194, 180, 235))
+            setTextColor(Palette.TEXT_DIM)
             gravity = Gravity.CENTER
             alpha = 0f
         }
@@ -356,106 +356,241 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    // PasswordSafe 0.46: identità visiva navy + ciano elettrico.
     private fun isDarkTheme() = getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
-    private fun appBg() = if(isDarkTheme()) Color.rgb(9,7,27) else Color.rgb(247,247,252)
-    private fun panelBg() = if(isDarkTheme()) Color.rgb(22,16,52) else Color.rgb(255,255,255)
-    private fun cardBg() = if(isDarkTheme()) Color.rgb(38,30,83) else Color.rgb(255,255,255)
-    private fun chipBg() = if(isDarkTheme()) Color.rgb(41,32,88) else Color.rgb(238,235,248)
-    private fun primaryText() = if(isDarkTheme()) Color.WHITE else Color.rgb(24,20,40)
-    private fun secondaryText() = if(isDarkTheme()) Color.rgb(194,180,235) else Color.rgb(105,100,120)
+    private fun appBg() = if (isDarkTheme()) Palette.INK else Color.rgb(244, 251, 252)
+    private fun panelBg() = if (isDarkTheme()) Palette.INK else Color.rgb(244, 251, 252)
+    private fun cardBg() = if (isDarkTheme()) Palette.SURFACE else Color.WHITE
+    private fun chipBg() = if (isDarkTheme()) Palette.SURFACE_2 else Color.rgb(232, 249, 250)
+    private fun primaryText() = if (isDarkTheme()) Palette.TEXT else Color.rgb(7, 24, 39)
+    private fun secondaryText() = if (isDarkTheme()) Palette.TEXT_DIM else Color.rgb(75, 101, 112)
 
     private fun showCategoryMenu() {
-        window.statusBarColor = Color.rgb(9, 7, 27)
+        window.statusBarColor = appBg()
+        window.navigationBarColor = appBg()
+
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(appBg())
-            setPadding(dp(18), dp(18), dp(18), dp(110))
+            setPadding(dp(18), dp(16), dp(18), dp(112))
         }
 
-        body.addView(LinearLayout(this).apply {
+        fun countFor(type: String): Int = when (type) {
+            "APP" -> items.count { it.appPackage.isNotBlank() && it.type in setOf("ACCOUNT", "LOGIN", "EMAIL") }
+            "SETTINGS" -> 0
+            else -> items.count { it.type == type && it.appPackage.isBlank() }
+        }
+
+        fun countText(type: String): String {
+            if (type == "SETTINGS") return "Configura"
+            val count = countFor(type)
+            return if (count == 1) "1 elemento" else "$count elementi"
+        }
+
+        fun statCell(value: String, label: String) = LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            addView(TextView(this@MainActivity).apply {
+                text = value
+                textSize = 22f
+                setTypeface(typeface, 1)
+                setTextColor(Palette.CYAN)
+                gravity = Gravity.CENTER
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = label
+                textSize = 10.5f
+                setTextColor(secondaryText())
+                gravity = Gravity.CENTER
+                setPadding(0, dp(2), 0, 0)
+            })
+        }
+
+        fun homeButton(label: String, type: String, iconRes: Int): View = LinearLayout(this@MainActivity).apply {
+            val selected = vaultTypeFilter == type
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(9), dp(9), dp(9))
+            contentDescription = label.replace("\n", " ")
+            alpha = if (vaultTypeFilter == "NONE" || selected || type == "SETTINGS") 1f else .48f
+            background = GradientDrawable().apply {
+                setColor(if (selected && isDarkTheme()) Palette.SURFACE_2 else cardBg())
+                cornerRadius = dp(17).toFloat()
+                setStroke(dp(if (selected) 2 else 1), if (selected) Palette.CYAN else Palette.BORDER)
+            }
+
+            val iconWrap = FrameLayout(this@MainActivity).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(if (isDarkTheme()) Color.argb(26, 0, 212, 228) else Color.argb(22, 0, 151, 167))
+                    setStroke(dp(1), Palette.CYAN)
+                }
+                addView(ImageView(this@MainActivity).apply {
+                    setImageResource(iconRes)
+                    imageTintList = android.content.res.ColorStateList.valueOf(Palette.CYAN)
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                    setPadding(dp(8), dp(8), dp(8), dp(8))
+                    contentDescription = label.replace("\n", " ")
+                }, FrameLayout.LayoutParams(-1, -1))
+            }
+            addView(iconWrap, LinearLayout.LayoutParams(dp(44), dp(44)).apply { setMargins(0, 0, dp(10), 0) })
+
             addView(LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
                 addView(TextView(this@MainActivity).apply {
-                    text = "La tua cassaforte"
-                    textSize = 24f
-                    setTextColor(primaryText())
+                    text = label
+                    textSize = if (type == "SETTINGS") 13f else 15f
+                    maxLines = 2
                     setTypeface(typeface, 1)
+                    setTextColor(primaryText())
                 })
                 addView(TextView(this@MainActivity).apply {
-                    text = "${items.size} elementi salvati"
-                    textSize = 13f
-                    setTextColor(secondaryText())
+                    text = countText(type)
+                    textSize = 10.5f
+                    setTextColor(if (selected) Palette.CYAN_SOFT else secondaryText())
                     setPadding(0, dp(2), 0, 0)
                 })
-            }, LinearLayout.LayoutParams(0, -2, 1f))
-            addView(FrameLayout(this@MainActivity).apply {
-                background = GradientDrawable().apply {
-                    setColor(if (isDarkTheme()) Color.rgb(30, 23, 70) else Color.WHITE)
-                    cornerRadius = dp(15).toFloat()
-                    setStroke(dp(1), if (isDarkTheme()) Color.rgb(72, 58, 140) else Color.rgb(224, 220, 238))
+            }, LinearLayout.LayoutParams(0, -1, 1f))
+
+            addView(TextView(this@MainActivity).apply {
+                text = "›"
+                textSize = 27f
+                gravity = Gravity.CENTER
+                setTextColor(if (selected) Palette.CYAN else secondaryText())
+            }, LinearLayout.LayoutParams(dp(22), -1))
+
+            setOnClickListener {
+                if (type == "SETTINGS") {
+                    showSettingsMenu()
+                } else {
+                    vaultTypeFilter = type
+                    showCategoryMenu()
                 }
-                addView(TextView(this@MainActivity).apply {
-                    text = "⚙"
-                    textSize = 21f
-                    gravity = Gravity.CENTER
-                    setTextColor(Color.rgb(238, 199, 62))
-                    setOnClickListener { showSettingsMenu() }
-                }, FrameLayout.LayoutParams(-1, -1))
-            }, LinearLayout.LayoutParams(dp(52), dp(52)))
+            }
+        }
+
+        body.addView(TextView(this).apply {
+            text = "La tua cassaforte"
+            textSize = 28f
+            setTextColor(primaryText())
+            setTypeface(typeface, 1)
+        })
+        body.addView(TextView(this).apply {
+            text = "${items.size} elementi salvati"
+            textSize = 15f
+            setTextColor(Palette.CYAN)
+            setPadding(0, dp(2), 0, 0)
         })
 
-        val groups = listOf(
-            listOf(
-                Triple("ACCOUNT", "Account", R.drawable.ic_account),
-                Triple("PIN", "PIN", R.drawable.ic_pin),
-                Triple("LOGIN", "Login", R.drawable.ic_login)
-            ),
-            listOf(
-                Triple("EMAIL", "Email", R.drawable.ic_email),
-                Triple("CARD", "Carte", R.drawable.ic_card),
-                Triple("PASSKEY", "Passkey", R.drawable.ic_passkey)
-            )
+        val summary = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(11), dp(10), dp(11), dp(10))
+            background = GradientDrawable().apply {
+                setColor(cardBg())
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), Palette.BORDER)
+            }
+        }
+
+        val shieldWrap = FrameLayout(this).apply {
+            fun ring(size: Int, alphaValue: Int): View = View(this@MainActivity).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.TRANSPARENT)
+                    setStroke(dp(1), Color.argb(alphaValue, 0, 212, 228))
+                }
+                layoutParams = FrameLayout.LayoutParams(dp(size), dp(size), Gravity.CENTER)
+            }
+            addView(ring(82, 62))
+            addView(ring(66, 110))
+            addView(ImageView(this@MainActivity).apply {
+                setImageResource(R.drawable.ic_shield_lock)
+                imageTintList = android.content.res.ColorStateList.valueOf(Palette.CYAN)
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+            }, FrameLayout.LayoutParams(dp(58), dp(58), Gravity.CENTER))
+        }
+        summary.addView(shieldWrap, LinearLayout.LayoutParams(dp(92), dp(112)).apply { setMargins(0, 0, dp(7), 0) })
+
+        summary.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(this@MainActivity).apply {
+                text = "La tua cassaforte è protetta"
+                textSize = 15.2f
+                setTypeface(typeface, 1)
+                setTextColor(primaryText())
+                maxLines = 2
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "Dati cifrati sul dispositivo"
+                textSize = 11.2f
+                setTextColor(Palette.CYAN_SOFT)
+                setPadding(0, dp(3), 0, dp(7))
+            })
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                addView(statCell(items.size.toString(), "Elementi"), LinearLayout.LayoutParams(0, dp(52), 1f))
+                addView(statCell("8", "Categorie"), LinearLayout.LayoutParams(0, dp(52), 1f))
+                addView(statCell("✓", "Protetto"), LinearLayout.LayoutParams(0, dp(52), 1f))
+            })
+        }, LinearLayout.LayoutParams(0, -1, 1f))
+        body.addView(summary, LinearLayout.LayoutParams(-1, dp(138)).apply { setMargins(0, dp(16), 0, dp(8)) })
+
+        val rows = listOf(
+            listOf(Triple("Account", "ACCOUNT", R.drawable.ic_account), Triple("PIN", "PIN", R.drawable.ic_pin)),
+            listOf(Triple("Login", "LOGIN", R.drawable.ic_login), Triple("Email", "EMAIL", R.drawable.ic_email)),
+            listOf(Triple("Carte", "CARD", R.drawable.ic_card), Triple("Passkey", "PASSKEY", R.drawable.ic_passkey)),
+            listOf(Triple("App", "APP", R.drawable.ic_app), Triple("Altro /\nImpostazioni", "SETTINGS", R.drawable.ic_settings))
         )
-        groups.forEachIndexed { rowIndex, row ->
+        rows.forEach { row ->
             body.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
-                setPadding(0, if (rowIndex == 0) dp(16) else dp(10), 0, 0)
-                row.forEach { (type, label, icon) ->
-                    addView(categoryIconButton(label, type, icon), LinearLayout.LayoutParams(0, dp(94), 1f).apply {
-                        setMargins(dp(5), 0, dp(5), 0)
+                row.forEach { (label, type, icon) ->
+                    addView(homeButton(label, type, icon), LinearLayout.LayoutParams(0, dp(80), 1f).apply {
+                        setMargins(dp(4), dp(5), dp(4), dp(5))
                     })
                 }
             })
         }
 
-        // Pulsante principale "App": raccoglie solo le app che abbiamo scelto
-        // e alle quali abbiamo già associato almeno una credenziale.
-        body.addView(LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, 0)
-            addView(Space(this@MainActivity), LinearLayout.LayoutParams(0, dp(94), 1f))
-            addView(categoryIconButton("App", "APP", R.drawable.ic_app), LinearLayout.LayoutParams(0, dp(94), 1f).apply {
-                setMargins(dp(5), 0, dp(5), 0)
-            })
-            addView(Space(this@MainActivity), LinearLayout.LayoutParams(0, dp(94), 1f))
-        })
-
         val list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(18), 0, 0)
+            setPadding(0, dp(12), 0, 0)
         }
         body.addView(list)
 
         fun refresh() {
             list.removeAllViews()
             if (vaultTypeFilter == "NONE") {
-                list.addView(infoText("Seleziona una categoria per visualizzare gli elementi."))
+                list.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(14), dp(10), dp(14), dp(10))
+                    background = GradientDrawable().apply {
+                        setColor(cardBg())
+                        cornerRadius = dp(17).toFloat()
+                        setStroke(dp(1), Palette.BORDER)
+                    }
+                    addView(TextView(this@MainActivity).apply {
+                        text = "✦"
+                        textSize = 21f
+                        gravity = Gravity.CENTER
+                        setTextColor(Palette.CYAN)
+                    }, LinearLayout.LayoutParams(dp(38), dp(42)).apply { setMargins(0, 0, dp(8), 0) })
+                    addView(TextView(this@MainActivity).apply {
+                        text = "Seleziona una categoria per visualizzare gli elementi."
+                        textSize = 12.5f
+                        setTextColor(secondaryText())
+                    }, LinearLayout.LayoutParams(0, -2, 1f))
+                }, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(4), dp(3), dp(4), 0) })
                 return
             }
+
             val label = when (vaultTypeFilter) {
                 "ACCOUNT" -> "ACCOUNT"
                 "PIN" -> "PIN"
@@ -470,28 +605,23 @@ class MainActivity : AppCompatActivity() {
                 textSize = 11f
                 letterSpacing = 0.12f
                 setTypeface(typeface, 1)
-                setTextColor(if (isDarkTheme()) Color.rgb(130, 120, 190) else Color.rgb(110, 100, 150))
-                setPadding(dp(6), 0, dp(6), dp(10))
+                setTextColor(Palette.CYAN)
+                setPadding(dp(6), dp(4), dp(6), dp(8))
             })
-            // Le credenziali collegate a un'app restano internamente LOGIN/ACCOUNT/EMAIL
-            // per l'Autofill, ma nella Home compaiono esclusivamente quando è selezionato App.
-            // App usa lo stesso elenco sotto ai pulsanti delle altre categorie: nessuna pagina separata.
+
             val shown = if (vaultTypeFilter == "APP") {
-                items.filter {
-                    it.appPackage.isNotBlank() && it.type in setOf("ACCOUNT", "LOGIN", "EMAIL")
-                }
+                items.filter { it.appPackage.isNotBlank() && it.type in setOf("ACCOUNT", "LOGIN", "EMAIL") }
             } else {
-                items.filter {
-                    it.type == vaultTypeFilter && it.appPackage.isBlank()
-                }
+                items.filter { it.type == vaultTypeFilter && it.appPackage.isBlank() }
             }.sortedBy { it.title.lowercase() }
             if (shown.isEmpty()) list.addView(infoText("Nessun elemento trovato.")) else shown.forEach { list.addView(itemListRow(it)) }
         }
+
         refresh()
         setDarkScreen(body, true)
     }
 
-    private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=(type=="TUTTI"&&vaultTypeFilter=="NONE")||vaultTypeFilter==type;setTextColor(if(selected)Color.WHITE else primaryText());setBackgroundColor(if(selected)Color.rgb(105,87,238) else chipBg());setOnClickListener{vaultTypeFilter=if(type=="TUTTI")"NONE" else type;showCategoryMenu()}}
+    private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=(type=="TUTTI"&&vaultTypeFilter=="NONE")||vaultTypeFilter==type;setTextColor(if(selected)Color.WHITE else primaryText());setBackgroundColor(if(selected)Palette.CYAN else chipBg());setOnClickListener{vaultTypeFilter=if(type=="TUTTI")"NONE" else type;showCategoryMenu()}}
 
     private fun categoryIconButton(label:String,type:String,iconRes:Int)=LinearLayout(this).apply {
         val selected = vaultTypeFilter == type
@@ -499,14 +629,14 @@ class MainActivity : AppCompatActivity() {
         gravity = Gravity.CENTER
         contentDescription = label
         background = GradientDrawable().apply {
-            setColor(if (selected) Color.rgb(33, 24, 74) else chipBg())
+            setColor(if (selected) Palette.SURFACE else chipBg())
             cornerRadius = dp(18).toFloat()
-            setStroke(dp(if (selected) 2 else 1), if (selected) Color.rgb(238, 199, 62) else if (isDarkTheme()) Color.rgb(59, 48, 116) else Color.rgb(222, 218, 235))
+            setStroke(dp(if (selected) 2 else 1), if (selected) Palette.CYAN else if (isDarkTheme()) Palette.BORDER else Color.rgb(222, 218, 235))
         }
         addView(ImageView(this@MainActivity).apply {
             setImageResource(iconRes)
             imageTintList = android.content.res.ColorStateList.valueOf(
-                if (selected) Color.rgb(238, 199, 62) else Color.rgb(118, 100, 214)
+                if (selected) Palette.CYAN else Palette.CYAN
             )
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = label
@@ -515,7 +645,7 @@ class MainActivity : AppCompatActivity() {
             text = label
             textSize = 12f
             setTypeface(typeface, if (selected) 1 else 0)
-            setTextColor(if (selected) Color.rgb(238, 199, 62) else secondaryText())
+            setTextColor(if (selected) Palette.CYAN else secondaryText())
             gravity = Gravity.CENTER
         })
         setOnClickListener {
@@ -525,7 +655,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun darkHeader(label:String, back:Boolean)=LinearLayout(this).apply {
-        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(20),dp(10),dp(16),dp(16));setBackgroundColor(if(isDarkTheme()) Color.rgb(27,52,78) else Color.rgb(238,235,248))
+        orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(20),dp(10),dp(16),dp(16));setBackgroundColor(if(isDarkTheme()) Palette.SURFACE else Color.rgb(238,235,248))
         if(back)addView(TextView(this@MainActivity).apply{text="‹";textSize=38f;gravity=Gravity.CENTER;setTextColor(primaryText());setOnClickListener{fadeTo{showCategoryMenu()}}},LinearLayout.LayoutParams(dp(48),dp(52)))
         addView(TextView(this@MainActivity).apply{text=label;textSize=23f;setTextColor(primaryText());setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))
         if(!back)addView(TextView(this@MainActivity).apply{text="⚡";textSize=20f;gravity=Gravity.CENTER;setOnClickListener{showGeneratedPassword()}},LinearLayout.LayoutParams(dp(48),dp(52)))
@@ -534,24 +664,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun menuActionRow(label:String,icon:String,action:()->Unit)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
-        background=GradientDrawable().apply{setColor(cardBg());setStroke(dp(1),if(isDarkTheme()) Color.rgb(67,56,132) else Color.rgb(220,216,232))}
+        background=GradientDrawable().apply{setColor(cardBg());setStroke(dp(1),if(isDarkTheme()) Palette.BORDER else Color.rgb(220,216,232))}
         addView(TextView(this@MainActivity).apply{text=icon;textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)},LinearLayout.LayoutParams(dp(40),dp(62)).apply{setMargins(0,0,dp(12),0)})
         addView(TextView(this@MainActivity).apply{text=label;textSize=17f;setTextColor(primaryText());gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(62),1f))
-        addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62))},LinearLayout.LayoutParams(dp(28),dp(54)))
+        addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Palette.CYAN)},LinearLayout.LayoutParams(dp(28),dp(54)))
         setOnClickListener{action()}
     }
 
     private fun menuActionRow(label:String,iconRes:Int,action:()->Unit)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(28),0,dp(26),0)
-        background=GradientDrawable().apply{setColor(cardBg());setStroke(dp(1),if(isDarkTheme()) Color.rgb(67,56,132) else Color.rgb(220,216,232))}
+        background=GradientDrawable().apply{setColor(cardBg());setStroke(dp(1),if(isDarkTheme()) Palette.BORDER else Color.rgb(220,216,232))}
         addView(ImageView(this@MainActivity).apply{
             setImageResource(iconRes)
-            imageTintList=android.content.res.ColorStateList.valueOf(if(isDarkTheme()) Color.rgb(190,176,238) else Color.rgb(91,73,185))
+            imageTintList=android.content.res.ColorStateList.valueOf(if(isDarkTheme()) Palette.TEXT_DIM else Palette.CYAN_DARK)
             scaleType=ImageView.ScaleType.CENTER_INSIDE
             contentDescription=label
         },LinearLayout.LayoutParams(dp(28),dp(62)).apply{setMargins(dp(6),0,dp(18),0)})
         addView(TextView(this@MainActivity).apply{text=label;textSize=17f;setTextColor(primaryText());gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(62),1f))
-        addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62))},LinearLayout.LayoutParams(dp(28),dp(54)))
+        addView(TextView(this@MainActivity).apply{text="›";textSize=31f;gravity=Gravity.CENTER;setTextColor(Palette.CYAN)},LinearLayout.LayoutParams(dp(28),dp(54)))
         setOnClickListener{action()}
     }
 
@@ -559,7 +689,7 @@ class MainActivity : AppCompatActivity() {
         val scroll=ScrollView(this).apply{setBackgroundColor(appBg());addView(content)}
         val frame=FrameLayout(this).apply {
             setBackgroundColor(appBg());addView(scroll,FrameLayout.LayoutParams(-1,-1))
-            if(showFab)addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=27f;cornerRadius=dp(30);setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(105,87,238));elevation=12f;setOnClickListener{when(vaultTypeFilter){"NONE"->showCreateTypeMenu();"APP"->showInstalledApps("NEW",true);else->showItemDialog(null,vaultTypeFilter)}}},FrameLayout.LayoutParams(dp(60),dp(60),Gravity.BOTTOM or Gravity.END).apply{setMargins(0,0,dp(24),dp(24))})
+            if(showFab)addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=27f;cornerRadius=dp(30);setTextColor(Color.WHITE);setBackgroundColor(Palette.CYAN);elevation=12f;setOnClickListener{when(vaultTypeFilter){"NONE"->showCreateTypeMenu();"APP"->showInstalledApps("NEW",true);else->showItemDialog(null,vaultTypeFilter)}}},FrameLayout.LayoutParams(dp(60),dp(60),Gravity.BOTTOM or Gravity.END).apply{setMargins(0,0,dp(24),dp(24))})
         }
         ViewCompat.setOnApplyWindowInsetsListener(frame){view,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());view.setPadding(0,bars.top,0,bars.bottom);insets}
         setContentView(frame)
@@ -573,7 +703,7 @@ class MainActivity : AppCompatActivity() {
             it.appPackage.isBlank() &&
             (filter.isBlank()||it.title.contains(filter,true)||it.username.contains(filter,true))
         }
-        if(vaultTypeFilter!="NONE" && filtered.isEmpty())body.addView(TextView(this).apply{text="Nessun elemento in questa categoria";gravity=Gravity.CENTER;textSize=17f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
+        if(vaultTypeFilter!="NONE" && filtered.isEmpty())body.addView(TextView(this).apply{text="Nessun elemento in questa categoria";gravity=Gravity.CENTER;textSize=17f;setTextColor(secondaryText());setPadding(20,60,20,60)})
         filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemListRow(it))}
         setDarkScreen(body, true)
     }
@@ -584,7 +714,7 @@ class MainActivity : AppCompatActivity() {
         background = GradientDrawable().apply {
             setColor(cardBg())
             cornerRadius = dp(22).toFloat()
-            setStroke(dp(1), if (isDarkTheme()) Color.rgb(69, 57, 133) else Color.rgb(226, 221, 239))
+            setStroke(dp(1), if (isDarkTheme()) Palette.BORDER else Color.rgb(226, 221, 239))
         }
         elevation = dp(1).toFloat()
         setPadding(dp(16), dp(14), dp(16), dp(14))
@@ -592,7 +722,7 @@ class MainActivity : AppCompatActivity() {
 
         val logoWrap = FrameLayout(this@MainActivity).apply {
             background = GradientDrawable().apply {
-                setColor(if (isDarkTheme()) Color.rgb(55, 43, 115) else Color.rgb(244, 242, 252))
+                setColor(if (isDarkTheme()) Palette.SURFACE_2 else Color.rgb(244, 242, 252))
                 cornerRadius = dp(18).toFloat()
             }
         }
@@ -600,7 +730,7 @@ class MainActivity : AppCompatActivity() {
             text = item.title.trim().firstOrNull()?.uppercase()?.toString() ?: "?"
             textSize = 22f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(238, 199, 62))
+            setTextColor(Palette.CYAN)
             setTypeface(typeface, 1)
         }
         val logo = ImageView(this@MainActivity).apply {
@@ -626,7 +756,7 @@ class MainActivity : AppCompatActivity() {
             text = "›"
             textSize = 28f
             gravity = Gravity.CENTER
-            setTextColor(if (isDarkTheme()) Color.rgb(101, 90, 163) else Color.rgb(150, 142, 184))
+            setTextColor(if (isDarkTheme()) Palette.BORDER else Color.rgb(150, 142, 184))
         }, LinearLayout.LayoutParams(dp(24), -1))
 
         setOnClickListener {
@@ -765,7 +895,7 @@ class MainActivity : AppCompatActivity() {
     private fun showSecurityIssues(title:String,problemItems:List<VaultItem>){val body=column().apply{setPadding(0,0,0,dp(40));setBackgroundColor(panelBg());addView(pageHeader(title){showSecurityDashboard()})};if(problemItems.isEmpty())body.addView(infoText("Nessun problema trovato."))else problemItems.forEach{body.addView(itemListRow(it))};setDarkScreen(body,false)}
     private fun issueRow(label:String,problemItems:List<VaultItem>,icon:String)=menuActionRow("$label   ${problemItems.size}",icon){showSecurityIssues(label,problemItems)}
     private fun securityLegend(label:String,count:Int,color:Int)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(34),dp(5),dp(34),dp(5));addView(View(this@MainActivity).apply{background=GradientDrawable().apply{setColor(color);shape=GradientDrawable.OVAL}},LinearLayout.LayoutParams(dp(14),dp(14)).apply{setMargins(0,0,dp(12),0)});addView(TextView(this@MainActivity).apply{text=label;textSize=15f;setTextColor(primaryText())},LinearLayout.LayoutParams(0,dp(36),1f));addView(TextView(this@MainActivity).apply{text=count.toString();textSize=15f;setTextColor(primaryText());setTypeface(typeface,1)})}
-    private fun sectionLabel(value:String)=TextView(this).apply{text=value;textSize=12f;setTextColor(Color.rgb(205,225,233));setPadding(dp(20),dp(26),dp(20),dp(12));setBackgroundColor(if(isDarkTheme()) Color.rgb(27,52,78) else Color.rgb(238,235,248))}
+    private fun sectionLabel(value:String)=TextView(this).apply{text=value;textSize=12f;setTextColor(Palette.TEXT_DIM);setPadding(dp(20),dp(26),dp(20),dp(12));setBackgroundColor(if(isDarkTheme()) Palette.SURFACE else Color.rgb(238,235,248))}
     private fun infoText(value:String)=TextView(this).apply{text=value;textSize=13f;setTextColor(secondaryText());setPadding(dp(28),dp(22),dp(28),dp(22))}
     private fun pageHeader(label:String,onBack:()->Unit)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(10),dp(16),dp(16));setBackgroundColor(appBg());addView(TextView(this@MainActivity).apply{text="‹";textSize=38f;gravity=Gravity.CENTER;setTextColor(primaryText());setOnClickListener{onBack()}},LinearLayout.LayoutParams(dp(50),dp(52)));addView(TextView(this@MainActivity).apply{text=label;textSize=22f;setTextColor(primaryText());setTypeface(typeface,1);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(0,dp(52),1f))}
     private fun toggleMenuRow(label:String,icon:String,checked:Boolean,onChange:(Boolean)->Unit):View=menuActionRow("$label   ${if(checked) "Sì" else "No"}",icon){onChange(!checked);showSettingsMenu()}
@@ -827,7 +957,7 @@ class MainActivity : AppCompatActivity() {
                 isAllCaps=false
                 cornerRadius=dp(18)
                 setTextColor(if(filter==value) Color.WHITE else primaryText())
-                setBackgroundColor(if(filter==value) Color.rgb(105,87,238) else chipBg())
+                setBackgroundColor(if(filter==value) Palette.CYAN else chipBg())
                 setOnClickListener { showInstalledApps(value, fromMain) }
             }, LinearLayout.LayoutParams(0,dp(42),1f).apply { setMargins(dp(3),0,dp(3),0) })
         }
@@ -853,7 +983,7 @@ class MainActivity : AppCompatActivity() {
                     background = GradientDrawable().apply {
                         setColor(cardBg())
                         cornerRadius = dp(18).toFloat()
-                        setStroke(dp(1), if(isDarkTheme()) Color.rgb(69,57,133) else Color.rgb(226,221,239))
+                        setStroke(dp(1), if(isDarkTheme()) Palette.BORDER else Color.rgb(226,221,239))
                     }
                     layoutParams = LinearLayout.LayoutParams(-1,dp(74)).apply { setMargins(dp(16),dp(5),dp(16),dp(5)) }
                     addView(ImageView(this@MainActivity).apply {
@@ -873,7 +1003,7 @@ class MainActivity : AppCompatActivity() {
                         if(existing.isNotEmpty()) addView(TextView(this@MainActivity).apply {
                             text=if(existing.size==1) "Credenziale salvata" else "${existing.size} credenziali salvate"
                             textSize=11f
-                            setTextColor(Color.rgb(238,199,62))
+                            setTextColor(Palette.CYAN)
                             setPadding(0,dp(2),0,0)
                         })
                     }, LinearLayout.LayoutParams(0,-1,1f))
@@ -881,7 +1011,7 @@ class MainActivity : AppCompatActivity() {
                         text=if(existing.isEmpty()) "+" else "✓"
                         textSize=24f
                         gravity=Gravity.CENTER
-                        setTextColor(if(existing.isEmpty()) Color.rgb(92,210,224) else Color.rgb(238,199,62))
+                        setTextColor(if(existing.isEmpty()) Palette.CYAN_SOFT else Palette.CYAN)
                     }, LinearLayout.LayoutParams(dp(36),-1))
                     setOnClickListener {
                         if(existing.isEmpty()) {
@@ -1113,7 +1243,7 @@ class MainActivity : AppCompatActivity() {
                 val labelView = TextView(this).apply {
                     text = "$extraFieldLabel  ▾"
                     textSize = 9f
-                    setTextColor(if (isDarkTheme()) Color.rgb(192, 181, 255) else Color.rgb(82, 63, 184))
+                    setTextColor(if (isDarkTheme()) Palette.TEXT_DIM else Palette.CYAN_DARK)
                     setTypeface(typeface, 1)
                     setPadding(dp(3), dp(4), 0, dp(2))
                     setOnClickListener {
@@ -1430,13 +1560,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPasswordGenerator(onGenerated:(String)->Unit) {
-        val panelColor = Color.rgb(42, 31, 91)
-        val rowColor = Color.rgb(57, 43, 122)
-        val borderColor = Color.rgb(119, 98, 255)
-        val cyan = Color.rgb(67, 220, 224)
-        val yellow = Color.rgb(248, 197, 58)
+        val panelColor = Palette.SURFACE
+        val rowColor = Palette.SURFACE_2
+        val borderColor = Palette.CYAN
+        val cyan = Palette.CYAN
+        val yellow = Palette.CYAN_SOFT
         val textMain = Color.WHITE
-        val textSoft = Color.rgb(226, 220, 248)
+        val textSoft = Palette.TEXT_DIM
 
         fun rounded(color:Int, radius:Int, strokeColor:Int?=null, strokeWidth:Int=1)=GradientDrawable().apply {
             setColor(color)
@@ -1475,7 +1605,7 @@ class MainActivity : AppCompatActivity() {
                 isChecked = true
                 buttonTintList = android.content.res.ColorStateList(
                     arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                    intArrayOf(cyan, Color.rgb(193, 184, 231))
+                    intArrayOf(cyan, Palette.TEXT_DIM)
                 )
                 scaleX = 0.98f
                 scaleY = 0.92f
@@ -1528,7 +1658,7 @@ class MainActivity : AppCompatActivity() {
             progress = 8
             minHeight = dp(42)
             progressTintList = android.content.res.ColorStateList.valueOf(cyan)
-            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(119, 98, 255))
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Palette.CYAN)
             thumbTintList = android.content.res.ColorStateList.valueOf(yellow)
             scaleY = 0.92f
             setPadding(0, dp(4), 0, dp(4))
@@ -1552,15 +1682,15 @@ class MainActivity : AppCompatActivity() {
             textSize = 15f
             gravity = Gravity.CENTER
             setTypeface(typeface, 1)
-            setTextColor(Color.rgb(216, 208, 244))
-            background = rounded(Color.TRANSPARENT, 16, Color.rgb(216, 208, 244), 1)
+            setTextColor(Palette.TEXT_DIM)
+            background = rounded(Color.TRANSPARENT, 16, Palette.TEXT_DIM, 1)
         }
         val generate = TextView(this).apply {
             text = "GENERA"
             textSize = 15f
             gravity = Gravity.CENTER
             setTypeface(typeface, 1)
-            setTextColor(Color.rgb(22, 16, 52))
+            setTextColor(Palette.SURFACE)
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(yellow, cyan)
@@ -1677,8 +1807,18 @@ class MainActivity : AppCompatActivity() {
         clipboard.setPrimaryClip(ClipData.newPlainText(label,value)); toast("$label copiato; sarà cancellato tra 30 secondi")
         android.os.Handler(mainLooper).postDelayed({ if(clipboard.hasPrimaryClip()) clipboard.setPrimaryClip(ClipData.newPlainText("", "")) },30000)
     }
-    private fun dialogField(hint:String,value:String)=EditText(this).apply { this.hint=hint; setText(value); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY); setPadding(18,20,18,20) }
-    private fun styledDialogField(hint:String,value:String)=dialogField(hint,value).apply{background=GradientDrawable().apply{setColor(Color.rgb(248,247,252));cornerRadius=dp(16).toFloat();setStroke(dp(1),Color.rgb(218,216,231))};layoutParams=LinearLayout.LayoutParams(-1,dp(58)).apply{setMargins(0,dp(5),0,dp(5))};setPadding(dp(18),0,dp(18),0)}
+    private fun dialogField(hint:String,value:String)=EditText(this).apply {
+        this.hint=hint
+        setText(value)
+        textSize=15f
+        setTextColor(primaryText())
+        setHintTextColor(secondaryText())
+        background=GradientDrawable().apply { setColor(cardBg()); cornerRadius=dp(14).toFloat(); setStroke(dp(1),Palette.BORDER) }
+        setPadding(dp(16),dp(12),dp(16),dp(12))
+    }
+    private fun styledDialogField(hint:String,value:String)=dialogField(hint,value).apply {
+        layoutParams=LinearLayout.LayoutParams(-1,dp(58)).apply { setMargins(0,dp(5),0,dp(5)) }
+    }
     private fun extraFieldHint(label:String):String = when(label.trim().uppercase()) {
         "SITO / DOMINIO", "SITO/DOMINIO", "SITO", "DOMINIO" -> "Sito / dominio (es. amazon.it)"
         "PIN" -> "PIN"
@@ -1786,11 +1926,21 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun darkEditorField(hint:String,value:String)=EditText(this).apply{this.hint=hint;setText(value);textSize=16f;setTextColor(primaryText());setHintTextColor(secondaryText());background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(14).toFloat();setStroke(dp(1),if(isDarkTheme()) Color.rgb(74,61,155) else Color.rgb(210,204,230))};layoutParams=LinearLayout.LayoutParams(-1,dp(56)).apply{setMargins(0,dp(2),0,dp(8))};setPadding(dp(16),0,dp(16),0)}
+    private fun darkEditorField(hint:String,value:String)=EditText(this).apply{this.hint=hint;setText(value);textSize=16f;setTextColor(primaryText());setHintTextColor(secondaryText());background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(14).toFloat();setStroke(dp(1),if(isDarkTheme()) Palette.BORDER else Color.rgb(210,204,230))};layoutParams=LinearLayout.LayoutParams(-1,dp(56)).apply{setMargins(0,dp(2),0,dp(8))};setPadding(dp(16),0,dp(16),0)}
     private fun addEditorField(parent:LinearLayout,label:String,field:EditText){parent.addView(TextView(this).apply{text=label;textSize=9f;setTextColor(secondaryText());setTypeface(typeface,1);setPadding(dp(3),dp(4),0,0)});parent.addView(field)}
-    private fun darkActionButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=11f;isAllCaps=false;maxLines=1;isSingleLine=true;ellipsize=android.text.TextUtils.TruncateAt.END;insetTop=0;insetBottom=0;setTextColor(if(label=="SALVA")Color.WHITE else if(isDarkTheme()) Color.rgb(238,199,62) else Color.rgb(75,58,180));setBackgroundColor(if(label=="SALVA")Color.rgb(105,87,238) else chipBg());cornerRadius=dp(12);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,dp(7),0,0)}}
+    private fun darkActionButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=11f;isAllCaps=false;maxLines=1;isSingleLine=true;ellipsize=android.text.TextUtils.TruncateAt.END;insetTop=0;insetBottom=0;setTextColor(if(label=="SALVA")Color.WHITE else if(isDarkTheme()) Palette.CYAN else Palette.CYAN_DARK);setBackgroundColor(if(label=="SALVA")Palette.CYAN else chipBg());cornerRadius=dp(12);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,dp(7),0,0)}}
     private fun darkTextButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=13f;isAllCaps=false;setTextColor(Color.rgb(255,105,105));setBackgroundColor(Color.TRANSPARENT);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(-1,dp(48)).apply{setMargins(0,dp(5),0,0)}}
-    private fun purpleLoginField(hint:String)=EditText(this).apply{this.hint=hint;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD;textSize=16f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setHintTextColor(Color.rgb(139,126,190));background=GradientDrawable().apply{setColor(Color.rgb(38,31,83));cornerRadius=dp(14).toFloat();setStroke(dp(1),Color.rgb(74,61,155))};layoutParams=LinearLayout.LayoutParams(-1,dp(62));setPadding(dp(16),0,dp(16),0)}
+    private fun purpleLoginField(hint:String)=EditText(this).apply {
+        this.hint=hint
+        inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        textSize=16f
+        gravity=Gravity.CENTER
+        setTextColor(primaryText())
+        setHintTextColor(secondaryText())
+        background=GradientDrawable().apply { setColor(cardBg()); cornerRadius=dp(14).toFloat(); setStroke(dp(1),Palette.BORDER) }
+        layoutParams=LinearLayout.LayoutParams(-1,dp(62))
+        setPadding(dp(16),0,dp(16),0)
+    }
     private fun smallButton(text:String, action:()->Unit)=MaterialButton(this).apply { this.text=text; textSize=11f; setOnClickListener{action()}; setTextColor(Color.WHITE); setBackgroundColor(blue) }
     private fun compactDialogButton(text:String,action:()->Unit)=smallButton(text,action).apply{maxLines=1;isSingleLine=true;insetTop=0;insetBottom=0;setPadding(dp(8),0,dp(8),0)}
     private fun toast(message:String)=Toast.makeText(this,message,Toast.LENGTH_SHORT).show()
@@ -1800,7 +1950,8 @@ class MainActivity : AppCompatActivity() {
     private fun formatWait(ms:Long):String=when{ms>=60_000->"${(ms+59_999)/60_000} minuti";else->"${(ms+999)/1000} secondi"}
 
     private fun setPage(body: LinearLayout) {
-        val scroll = ScrollView(this).apply { setBackgroundColor(Color.rgb(244,247,252)); addView(body) }
+        body.setBackgroundColor(appBg())
+        val scroll = ScrollView(this).apply { setBackgroundColor(appBg()); addView(body) }
         setContentView(scroll)
     }
     private fun column(gravityValue: Int = Gravity.NO_GRAVITY) = LinearLayout(this).apply {
@@ -1808,33 +1959,38 @@ class MainActivity : AppCompatActivity() {
     }
     private fun title(head: String, sub: String) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        addView(TextView(this@MainActivity).apply { text = head; textSize = 30f; setTextColor(Color.rgb(23,32,51)); setTypeface(typeface, 1) })
-        addView(TextView(this@MainActivity).apply { text = sub; textSize = 16f; setTextColor(Color.DKGRAY); setPadding(0, 8, 0, 28) })
+        addView(TextView(this@MainActivity).apply { text = head; textSize = 30f; setTextColor(primaryText()); setTypeface(typeface, 1) })
+        addView(TextView(this@MainActivity).apply { text = sub; textSize = 16f; setTextColor(secondaryText()); setPadding(0, dp(8), 0, dp(28)) })
     }
     private fun field(hint: String, pin: Boolean = false): Pair<TextInputLayout, TextInputEditText> {
         val edit = TextInputEditText(this).apply {
             this.hint = hint
-            setTextColor(Color.rgb(23, 32, 51))
-            setHintTextColor(Color.rgb(92, 101, 120))
+            setTextColor(primaryText())
+            setHintTextColor(secondaryText())
             if (pin) inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
         }
         val layout = TextInputLayout(this).apply {
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE; boxBackgroundColor = Color.WHITE
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+            boxBackgroundColor = cardBg()
             setBoxStrokeColorStateList(android.content.res.ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(blue, Color.rgb(150, 158, 175))
+                intArrayOf(Palette.CYAN, Palette.BORDER)
             ))
-            hintTextColor = android.content.res.ColorStateList.valueOf(Color.rgb(70, 80, 100))
+            hintTextColor = android.content.res.ColorStateList.valueOf(secondaryText())
             if (pin) endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
             addView(edit)
         }
-        layout.layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 7, 0, 7) }
+        layout.layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, dp(7), 0, dp(7)) }
         return layout to edit
     }
     private fun button(text: String, action: () -> Unit) = MaterialButton(this).apply {
-        this.text = text; textSize = 15f; setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(105,87,238))
-        cornerRadius = 22; setOnClickListener { action() }
-        layoutParams = LinearLayout.LayoutParams(-1, 138).apply { setMargins(0, 10, 0, 10) }
+        this.text = text
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        setBackgroundColor(Palette.CYAN_DARK)
+        cornerRadius = dp(18)
+        setOnClickListener { action() }
+        layoutParams = LinearLayout.LayoutParams(-1, dp(50)).apply { setMargins(0, dp(6), 0, dp(6)) }
     }
     private fun errorText() = TextView(this).apply { setTextColor(Color.rgb(190,30,45)); textSize = 14f; visibility = View.GONE; setPadding(4,8,4,8) }
     private fun showError(view: TextView, message: String) { view.text = message; view.visibility = View.VISIBLE }

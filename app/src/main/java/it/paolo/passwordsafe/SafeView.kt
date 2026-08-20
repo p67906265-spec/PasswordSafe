@@ -20,31 +20,31 @@ class SafeView(context: Context, attrs: AttributeSet? = null) : View(context, at
         val left = (width - size) / 2f
         val top = (height - size) / 2f
         val safe = RectF(left, top, left + size, top + size)
-        paint.color = Color.rgb(30, 28, 91)
+        paint.color = Palette.SURFACE_2
         canvas.drawRoundRect(safe, size * .12f, size * .12f, paint)
-        paint.color = Color.rgb(14, 13, 55)
+        paint.color = Palette.INK
         canvas.drawRoundRect(RectF(left + size*.07f, top + size*.08f, left + size*.93f, top + size*.92f), size*.08f, size*.08f, paint)
         if (opening > .08f) {
-            paint.color = Color.argb((210 * opening).toInt(), 255, 205, 63)
+            paint.color = Color.argb((210 * opening).toInt(), 0, 212, 228)
             canvas.drawRoundRect(RectF(left + size*.13f, top + size*.14f, left + size*.87f, top + size*.86f), size*.05f, size*.05f, paint)
         }
         canvas.save()
         canvas.translate(-size*.58f*opening, 0f)
         val door = RectF(left + size*.10f, top + size*.11f, left + size*.90f, top + size*.89f)
-        paint.color = Color.rgb(79, 68, 190)
+        paint.color = Palette.SURFACE_2
         canvas.drawRoundRect(door, size*.07f, size*.07f, paint)
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = size*.035f
-        paint.color = Color.rgb(139, 124, 239)
+        paint.color = Palette.CYAN_SOFT
         canvas.drawRoundRect(RectF(door.left+size*.05f, door.top+size*.05f, door.right-size*.05f, door.bottom-size*.05f), size*.045f, size*.045f, paint)
         paint.style = Paint.Style.FILL
         val cx = door.centerX() + size*.10f
         val cy = door.centerY()
-        paint.color = Color.rgb(232, 190, 62)
+        paint.color = Palette.CYAN
         canvas.drawCircle(cx, cy, size*.16f, paint)
-        paint.color = Color.rgb(42, 36, 112)
+        paint.color = Palette.SURFACE
         canvas.drawCircle(cx, cy, size*.105f, paint)
-        paint.color = Color.rgb(232, 190, 62)
+        paint.color = Palette.CYAN
         paint.strokeWidth = size*.035f
         for (angle in listOf(0f, 90f, 180f, 270f)) {
             val r = Math.toRadians(angle.toDouble())

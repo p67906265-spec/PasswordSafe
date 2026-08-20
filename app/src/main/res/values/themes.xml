@@ -13,11 +13,11 @@
     </style>
 
     <style name="PasswordSafeDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
-        <item name="colorPrimary">#6750E8</item>
-        <item name="colorAccent">#6750E8</item>
-        <item name="colorSurface">#FFFFFF</item>
-        <item name="colorOnSurface">#171329</item>
-        <item name="android:textColorPrimary">#171329</item>
-        <item name="android:textColorSecondary">#655F78</item>
+        <item name="colorPrimary">#0097A7</item>
+        <item name="colorAccent">#00AFC0</item>
+        <item name="colorSurface">#F7FEFF</item>
+        <item name="colorOnSurface">#071827</item>
+        <item name="android:textColorPrimary">#071827</item>
+        <item name="android:textColorSecondary">#4B6570</item>
     </style>
 </resources>
