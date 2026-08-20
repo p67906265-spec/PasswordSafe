@@ -22,12 +22,15 @@ class VaultStore(private val context:Context){
     private companion object {
         const val MASTER_PBKDF2_ITERATIONS = 600_000
         const val LEGACY_BACKUP_PBKDF2_ITERATIONS = 250_000
+        @Volatile private var sharedSessionKey: ByteArray? = null
     }
     private val file=context.filesDir.resolve("vault.bin")
     private val prefs=context.getSharedPreferences("vault_security_v2",Context.MODE_PRIVATE)
     private val legacyAlias="passwordsafe_vault_key"
     private val biometricAlias="passwordsafe_biometric_rsa_v2"
-    private var sessionKey:ByteArray?=null
+    private var sessionKey: ByteArray?
+        get() = sharedSessionKey
+        set(value) { sharedSessionKey = value }
     val modern:Boolean get()=prefs.getBoolean("modern",false)
 
     fun loadLegacy():MutableList<VaultItem>{if(!file.exists())return mutableListOf();return fromJson(String(decryptLegacy(file.readBytes())))}
@@ -39,6 +42,7 @@ class VaultStore(private val context:Context){
     fun load():MutableList<VaultItem>{val key=requireNotNull(sessionKey);if(!file.exists())return mutableListOf();return fromJson(String(decrypt(file.readBytes(),key)))}
     fun save(items:List<VaultItem>){file.writeBytes(encrypt(toJson(items).toByteArray(),requireNotNull(sessionKey)))}
     fun lock(){sessionKey?.fill(0);sessionKey=null}
+    fun isUnlocked():Boolean=sessionKey!=null
 
     fun biometricCipher():Cipher?=runCatching{val wrapped=unb64(prefs.getString("biometric_wrap","")!!);if(wrapped.isEmpty())return null;val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)};Cipher.getInstance("RSA/ECB/PKCS1Padding").apply{init(Cipher.DECRYPT_MODE,ks.getKey(biometricAlias,null))}}.getOrNull()
     fun unlockWithBiometric(cipher:Cipher):Boolean=runCatching{sessionKey=cipher.doFinal(unb64(prefs.getString("biometric_wrap","")!!));true}.getOrDefault(false)

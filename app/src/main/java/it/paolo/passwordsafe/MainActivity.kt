@@ -3,13 +3,18 @@ package it.paolo.passwordsafe
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Build
 import android.content.ClipData
+import android.content.Intent
 import android.content.ClipboardManager
+import android.net.Uri
+import android.provider.Settings
 import android.text.InputType
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
+import android.view.autofill.AutofillManager
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -25,6 +30,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -32,6 +38,9 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 
 class MainActivity : AppCompatActivity() {
     private lateinit var security: SecurityStore
@@ -42,6 +51,19 @@ class MainActivity : AppCompatActivity() {
     private val revealedPins = mutableSetOf<String>()
     private val blue = Color.rgb(22, 93, 255)
     private var loginSafe: SafeView? = null
+    private var pendingCardNumberField: EditText? = null
+    private var pendingCardExpiryField: EditText? = null
+    private var pendingCardHolderField: EditText? = null
+    private var pendingCardPhotoUri: Uri? = null
+
+    private val scanCardPhoto = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val uri = pendingCardPhotoUri
+        if (!success || uri == null) {
+            toast("Scansione annullata")
+        } else {
+            recognizeCard(uri)
+        }
+    }
 
     private val createBackupFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) runCatching { pendingBackup?.let { data -> contentResolver.openOutputStream(uri)?.use { it.write(data) } } }
@@ -228,7 +250,7 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor=Color.rgb(9,7,27)
         val body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(panelBg());setPadding(dp(22),dp(22),dp(22),dp(110))}
         body.addView(LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(TextView(this@MainActivity).apply{text="La tua cassaforte";textSize=25f;setTextColor(primaryText());setTypeface(typeface,1)});addView(TextView(this@MainActivity).apply{text="${items.size} elementi salvati";textSize=13f;setTextColor(secondaryText());setPadding(0,dp(2),0,0)})},LinearLayout.LayoutParams(0,-2,1f));addView(TextView(this@MainActivity).apply{text="⚙";textSize=22f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setOnClickListener{showSettingsMenu()}},LinearLayout.LayoutParams(dp(48),dp(48)))})
-        val chips=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};listOf("ACCOUNT" to "Account","PIN" to "PIN","LOGIN" to "Login","EMAIL" to "Email").forEach{(type,label)->chips.addView(filterChip(label,type),LinearLayout.LayoutParams(0,dp(44),1f).apply{setMargins(dp(2),0,dp(2),0)})};body.addView(chips)
+        val chips=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};listOf("ACCOUNT" to "Account","PIN" to "PIN","LOGIN" to "Login","EMAIL" to "Email","CARD" to "Carte").forEach{(type,label)->chips.addView(filterChip(label,type),LinearLayout.LayoutParams(0,dp(44),1f).apply{setMargins(dp(2),0,dp(2),0)})};body.addView(chips)
         val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(14),0,0)};body.addView(list)
         fun refresh(){list.removeAllViews();if(vaultTypeFilter=="NONE"){list.addView(infoText("Seleziona una categoria per visualizzare gli elementi."));return};val shown=items.filter{it.type==vaultTypeFilter}.sortedBy{it.title.lowercase()};if(shown.isEmpty())list.addView(infoText("Nessun elemento trovato."))else shown.forEach{list.addView(itemListRow(it))}}
         refresh();setDarkScreen(body,true)
@@ -265,7 +287,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderVault(filter: String) {
         window.statusBarColor = appBg()
-        val body = column().apply { setPadding(0,0,0,dp(110));setBackgroundColor(panelBg());addView(darkHeader(when(vaultTypeFilter){"ACCOUNT"->"Account";"PIN"->"PIN";"LOGIN"->"Login";else->"Email"},true),LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,0)}) }
+        val body = column().apply { setPadding(0,0,0,dp(110));setBackgroundColor(panelBg());addView(darkHeader(when(vaultTypeFilter){"ACCOUNT"->"Account";"PIN"->"PIN";"LOGIN"->"Login";"CARD"->"Carte";else->"Email"},true),LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,0)}) }
         val filtered=items.filter{it.type==vaultTypeFilter&&(filter.isBlank()||it.title.contains(filter,true)||it.username.contains(filter,true))}
         if(vaultTypeFilter!="NONE" && filtered.isEmpty())body.addView(TextView(this).apply{text="Nessun elemento in questa categoria";gravity=Gravity.CENTER;textSize=17f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
         filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemListRow(it))}
@@ -274,7 +296,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun itemListRow(item:VaultItem)=LinearLayout(this).apply {
         orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),0,0,0);background=GradientDrawable().apply{setColor(Color.rgb(238,199,62));cornerRadius=dp(18).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(76)).apply{setMargins(0,dp(5),0,dp(5))}
-        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),0,dp(14),0);background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(16).toFloat()};addView(TextView(this@MainActivity).apply{text=item.title.trim().firstOrNull()?.uppercase()?:"?";textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setTypeface(typeface,1);background=GradientDrawable().apply{setColor(Color.rgb(49,40,112));cornerRadius=dp(12).toFloat()}},LinearLayout.LayoutParams(dp(50),dp(50)).apply{setMargins(0,0,dp(14),0)});addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_VERTICAL;addView(TextView(this@MainActivity).apply{text=item.title;textSize=16f;maxLines=1;setTextColor(primaryText());setTypeface(typeface,1)});if(item.type!="ACCOUNT" && item.type!="EMAIL" && item.type!="PIN") addView(TextView(this@MainActivity).apply{text=item.username;textSize=12f;maxLines=1;setTextColor(secondaryText());setPadding(0,dp(3),0,0)})},LinearLayout.LayoutParams(0,-1,1f))},LinearLayout.LayoutParams(-1,-1))
+        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(dp(14),0,dp(14),0);background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(16).toFloat()};addView(TextView(this@MainActivity).apply{text=item.title.trim().firstOrNull()?.uppercase()?:"?";textSize=20f;gravity=Gravity.CENTER;setTextColor(Color.rgb(238,199,62));setTypeface(typeface,1);background=GradientDrawable().apply{setColor(Color.rgb(49,40,112));cornerRadius=dp(12).toFloat()}},LinearLayout.LayoutParams(dp(50),dp(50)).apply{setMargins(0,0,dp(14),0)});addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_VERTICAL;addView(TextView(this@MainActivity).apply{text=item.title;textSize=16f;maxLines=1;setTextColor(primaryText());setTypeface(typeface,1)});if(item.type!="ACCOUNT" && item.type!="EMAIL" && item.type!="PIN") addView(TextView(this@MainActivity).apply{text=if(item.type=="CARD") "•••• ${item.username.filter(Char::isDigit).takeLast(4)}" else item.username;textSize=12f;maxLines=1;setTextColor(secondaryText());setPadding(0,dp(3),0,0)})},LinearLayout.LayoutParams(0,-1,1f))},LinearLayout.LayoutParams(-1,-1))
         setOnClickListener{vaultTypeFilter=item.type;showItemDialog(item)}
     }
 
@@ -292,6 +314,8 @@ class MainActivity : AppCompatActivity() {
             addView(menuActionRow("Cambia password","●"){showChangeMasterPassword()})
             addView(toggleMenuRow("Accesso con impronta","◎",security.biometricEnabled){security.biometricEnabled=it})
             addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
+            addView(menuActionRow("Compilazione automatica   ${if(isAutofillEnabled()) "✓" else ""}","↯"){openAutofillSettings()})
+            addView(infoText("Per usare la compilazione automatica, attiva PasswordSafe come servizio Android. Per sicurezza la cassaforte deve essere già sbloccata."))
             addView(sectionLabel("TEMA"))
             val darkTheme=getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
             addView(menuActionRow("Tema chiaro   ${if(!darkTheme) "✓" else ""}","☀"){setAppTheme(false)})
@@ -301,7 +325,7 @@ class MainActivity : AppCompatActivity() {
     }
     private fun showBackupPage(){val body=column().apply{setPadding(0,0,0,dp(50));setBackgroundColor(panelBg());addView(pageHeader("Backup e ripristino"){showSettingsMenu()});addView(infoText("Il file è cifrato e può essere salvato su Google Drive dal selettore Android."));addView(menuActionRow("Crea backup cifrato","↥"){askBackupPin()});addView(menuActionRow("Ripristina un backup","↧"){openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))})};setDarkScreen(body,false)}
     private fun showSecurityDashboard(){
-        val protected=items.filter{it.type!="PIN" && it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
+        val protected=items.filter{it.type!="PIN" && it.type!="CARD" && it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
         val reused=protected.filter{it.password in reusedValues};val weak=protected.filter{!isStrongPassword(it.password)};val strong=protected.filter{isStrongPassword(it.password)&&it.password !in reusedValues}
         val body=column().apply{setPadding(0,0,0,dp(60));setBackgroundColor(panelBg());addView(pageHeader("Dashboard sicurezza"){showSettingsMenu()});addView(SecurityChartView(this@MainActivity).apply{setValues(strong.size,weak.size,reused.size)},LinearLayout.LayoutParams(-1,dp(190)));addView(securityLegend("Password sicure",strong.size,Color.rgb(121,166,26)));addView(securityLegend("Password deboli",weak.size,Color.rgb(205,38,38)));addView(securityLegend("Password riutilizzate",reused.size,Color.rgb(170,170,170)));addView(sectionLabel("APPROFONDIMENTI SULLA SICUREZZA"));addView(issueRow("Password deboli",weak.distinctBy{it.id},"!"));addView(issueRow("Password riutilizzate",reused.distinctBy{it.id},"↻"));addView(infoText("Il controllo avviene solo sul telefono: nessuna password viene inviata online."))};setDarkScreen(body,false)
     }
@@ -321,56 +345,311 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCreateTypeMenu() {
-        val labels = arrayOf("👤  Account", "💳  PIN", "🌐  Login", "✉  Email")
+        val labels = arrayOf("👤  Account", "💳  PIN", "🌐  Login", "✉  Email", "💳  Carta")
         AlertDialog.Builder(this).setTitle("Cosa vuoi creare?").setItems(labels) { _, which ->
-            showItemDialog(null, when(which) { 0 -> "ACCOUNT"; 1 -> "PIN"; 2 -> "LOGIN"; else -> "EMAIL" })
+            val type = when (which) {
+                0 -> "ACCOUNT"
+                1 -> "PIN"
+                2 -> "LOGIN"
+                3 -> "EMAIL"
+                else -> "CARD"
+            }
+            showItemDialog(null, type)
         }.setNegativeButton("Annulla",null).show()
     }
 
     private fun showItemDialog(existing: VaultItem?, requestedType: String? = null) {
         val itemType = existing?.type ?: requestedType ?: "LOGIN"
-        val typeLabel = when(itemType) { "PIN" -> "PIN"; "ACCOUNT" -> "Account"; "EMAIL" -> "Email"; else -> "Login" }
-        val box=column().apply{setPadding(0,0,0,dp(70));setBackgroundColor(panelBg());addView(pageHeader("${if(existing==null) "Nuovo" else "Modifica"} $typeLabel"){showCategoryMenu()})}
-        val fields=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(24),dp(26),dp(24),dp(10))};box.addView(fields)
-        val titleF=darkEditorField(when(itemType){"PIN"->"Nome banca";"ACCOUNT"->"Nome account";else->"Nome del sito"},existing?.title?:"")
-        val userF=darkEditorField(if(itemType=="ACCOUNT"||itemType=="EMAIL")"Email" else "Nome utente / email",existing?.username?:"")
-        val passF=darkEditorField(if(itemType=="PIN")"PIN" else "Password",existing?.password?:"")
-        if(itemType=="PIN") passF.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-        if(itemType!="EMAIL")addEditorField(fields,if(itemType=="PIN")"NOME BANCA" else "TITOLO",titleF);if(itemType!="PIN")addEditorField(fields,if(itemType=="ACCOUNT"||itemType=="EMAIL")"EMAIL" else "EMAIL / UTENTE",userF);addEditorField(fields,if(itemType=="PIN")"PIN" else "PASSWORD",passF)
-        if(itemType=="PIN")fields.addView(darkActionButton("MOSTRA / NASCONDI PIN"){val visible=passF.inputType and InputType.TYPE_NUMBER_VARIATION_PASSWORD==0;passF.inputType=InputType.TYPE_CLASS_NUMBER or if(visible)InputType.TYPE_NUMBER_VARIATION_PASSWORD else InputType.TYPE_NUMBER_VARIATION_NORMAL;passF.setSelection(passF.text.length)})
-        else {
-            fields.addView(darkActionButton("GENERA PASSWORD"){showPasswordGenerator { passF.setText(it) }})
-            fields.addView(darkActionButton("VERIFICA PASSWORD COMPROMESSA"){
-                val value=passF.text.toString()
-                if(value.isBlank()) toast("Inserisci prima una password") else {
+        val typeLabel = when (itemType) {
+            "PIN" -> "PIN"
+            "ACCOUNT" -> "Account"
+            "EMAIL" -> "Email"
+            "CARD" -> "Carta"
+            else -> "Login"
+        }
+
+        val box = column().apply {
+            setPadding(0, 0, 0, dp(70))
+            setBackgroundColor(panelBg())
+            addView(pageHeader("${if (existing == null) "Nuovo" else "Modifica"} $typeLabel") { showCategoryMenu() })
+        }
+        val fields = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(26), dp(24), dp(10))
+        }
+        box.addView(fields)
+
+        if (itemType == "CARD") {
+            val titleF = darkEditorField("Nome carta / banca", existing?.title ?: "")
+            val numberF = darkEditorField("Numero carta", existing?.username ?: "").apply {
+                inputType = InputType.TYPE_CLASS_NUMBER
+            }
+            val expiryF = darkEditorField("MM/AA", existing?.url ?: "")
+            val holderF = darkEditorField("Intestatario", existing?.notes ?: "")
+            val cvvF = darkEditorField("CVV", existing?.password ?: "").apply {
+                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            }
+
+            addEditorField(fields, "NOME CARTA / BANCA", titleF)
+            addEditorField(fields, "NUMERO CARTA", numberF)
+            addEditorField(fields, "SCADENZA", expiryF)
+            addEditorField(fields, "INTESTATARIO", holderF)
+            addEditorField(fields, "CVV", cvvF)
+
+            fields.addView(darkActionButton("SCANSIONA CARTA") {
+                pendingCardNumberField = numberF
+                pendingCardExpiryField = expiryF
+                pendingCardHolderField = holderF
+                startCardScan()
+            })
+            fields.addView(infoText("La foto viene analizzata sul telefono e non viene salvata. Il CVV va inserito manualmente."))
+            fields.addView(darkActionButton("MOSTRA / NASCONDI CVV") {
+                val hidden = cvvF.inputType and InputType.TYPE_NUMBER_VARIATION_PASSWORD != 0
+                cvvF.inputType = InputType.TYPE_CLASS_NUMBER or if (hidden) InputType.TYPE_NUMBER_VARIATION_NORMAL else InputType.TYPE_NUMBER_VARIATION_PASSWORD
+                cvvF.setSelection(cvvF.text.length)
+            })
+            if (existing != null) {
+                fields.addView(darkActionButton("COPIA NUMERO CARTA") { copySecure("Numero carta", numberF.text.toString()) })
+            }
+            fields.addView(darkActionButton("SALVA") saveCard@{
+                val number = numberF.text.toString().filter(Char::isDigit)
+                if (titleF.text.toString().isBlank() || number.length !in 13..19) {
+                    toast("Inserisci nome carta e un numero valido")
+                    return@saveCard
+                }
+                val saved = existing ?: VaultItem(
+                    title = titleF.text.toString(),
+                    username = number,
+                    password = cvvF.text.toString(),
+                    url = expiryF.text.toString(),
+                    notes = holderF.text.toString(),
+                    category = typeLabel,
+                    type = itemType
+                )
+                saved.title = titleF.text.toString()
+                saved.username = number
+                saved.password = cvvF.text.toString()
+                saved.url = expiryF.text.toString()
+                saved.notes = holderF.text.toString()
+                saved.category = typeLabel
+                saved.type = itemType
+                if (existing == null) items.add(saved)
+                vault.save(items)
+                vaultTypeFilter = itemType
+                showCategoryMenu()
+            })
+            fields.addView(darkActionButton("ANNULLA") { showCategoryMenu() })
+            if (existing != null) addDeleteButton(fields, existing)
+            setDarkScreen(box, false)
+            return
+        }
+
+        val titleF = darkEditorField(
+            when (itemType) {
+                "PIN" -> "Nome banca"
+                "ACCOUNT" -> "Nome account"
+                else -> "Nome del sito"
+            },
+            existing?.title ?: ""
+        )
+        val userF = darkEditorField(
+            if (itemType == "ACCOUNT" || itemType == "EMAIL") "Email" else "Nome utente / email",
+            existing?.username ?: ""
+        )
+        val passF = darkEditorField(if (itemType == "PIN") "PIN" else "Password", existing?.password ?: "")
+        val urlF = darkEditorField("Sito / dominio (es. amazon.it)", existing?.url ?: "")
+
+        if (itemType == "PIN") {
+            passF.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        }
+        if (itemType != "EMAIL") addEditorField(fields, if (itemType == "PIN") "NOME BANCA" else "TITOLO", titleF)
+        if (itemType != "PIN") addEditorField(fields, if (itemType == "ACCOUNT" || itemType == "EMAIL") "EMAIL" else "EMAIL / UTENTE", userF)
+        addEditorField(fields, if (itemType == "PIN") "PIN" else "PASSWORD", passF)
+        if (itemType == "ACCOUNT" || itemType == "LOGIN" || itemType == "EMAIL") {
+            addEditorField(fields, "SITO / DOMINIO PER AUTOFILL", urlF)
+        }
+
+        if (itemType == "PIN") {
+            fields.addView(darkActionButton("MOSTRA / NASCONDI PIN") {
+                val hidden = passF.inputType and InputType.TYPE_NUMBER_VARIATION_PASSWORD != 0
+                passF.inputType = InputType.TYPE_CLASS_NUMBER or if (hidden) InputType.TYPE_NUMBER_VARIATION_NORMAL else InputType.TYPE_NUMBER_VARIATION_PASSWORD
+                passF.setSelection(passF.text.length)
+            })
+        } else {
+            fields.addView(darkActionButton("GENERA PASSWORD") { showPasswordGenerator { passF.setText(it) } })
+            fields.addView(darkActionButton("VERIFICA PASSWORD COMPROMESSA") {
+                val value = passF.text.toString()
+                if (value.isBlank()) {
+                    toast("Inserisci prima una password")
+                } else {
                     toast("Controllo in corso…")
-                    checkCompromisedPassword(value){ count ->
+                    checkCompromisedPassword(value) { count ->
                         when {
                             count == null -> toast("Impossibile effettuare il controllo. Verifica la connessione Internet.")
-                            count > 0 -> AlertDialog.Builder(this).setTitle("Password compromessa").setMessage("Questa password compare in archivi di violazioni note $count volte. È consigliato cambiarla.").setPositiveButton("OK",null).show()
-                            else -> AlertDialog.Builder(this).setTitle("Nessuna compromissione trovata").setMessage("La password non è stata trovata nell’archivio Pwned Passwords.").setPositiveButton("OK",null).show()
+                            count > 0 -> AlertDialog.Builder(this)
+                                .setTitle("Password compromessa")
+                                .setMessage("Questa password compare in archivi di violazioni note $count volte. È consigliato cambiarla.")
+                                .setPositiveButton("OK", null)
+                                .show()
+                            else -> AlertDialog.Builder(this)
+                                .setTitle("Nessuna compromissione trovata")
+                                .setMessage("La password non è stata trovata nell’archivio Pwned Passwords.")
+                                .setPositiveButton("OK", null)
+                                .show()
                         }
                     }
                 }
             })
-            if(existing!=null && (itemType=="ACCOUNT" || itemType=="EMAIL")) {
-                fields.addView(LinearLayout(this).apply{
-                    orientation=LinearLayout.HORIZONTAL
-                    addView(darkActionButton("COPIA MAIL"){copySecure("Email",userF.text.toString())},LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(0,0,dp(5),0)})
-                    addView(darkActionButton("COPIA PASSWORD"){copySecure("Password",passF.text.toString())},LinearLayout.LayoutParams(0,dp(50),1f).apply{setMargins(dp(5),0,0,0)})
+            if (existing != null && (itemType == "ACCOUNT" || itemType == "EMAIL")) {
+                fields.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    addView(darkActionButton("COPIA MAIL") { copySecure("Email", userF.text.toString()) }, LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(0, 0, dp(5), 0) })
+                    addView(darkActionButton("COPIA PASSWORD") { copySecure("Password", passF.text.toString()) }, LinearLayout.LayoutParams(0, dp(50), 1f).apply { setMargins(dp(5), 0, 0, 0) })
                 })
             }
         }
+
         fields.addView(darkActionButton("SALVA") save@{
-                if ((itemType!="EMAIL"&&titleF.text.toString().isBlank()) || passF.text.toString().isBlank()){toast(if(itemType=="PIN")"Inserisci banca e PIN" else "Completa i campi richiesti");return@save}
-                if(itemType!="PIN"&&userF.text.toString().isBlank()){toast(if(itemType=="ACCOUNT"||itemType=="EMAIL")"Inserisci l’email" else "Inserisci utente o email");return@save}
-                val savedTitle=if(itemType=="EMAIL")userF.text.toString()else titleF.text.toString()
-                if (existing == null) items.add(VaultItem(title=savedTitle, username=userF.text.toString(), password=passF.text.toString(), category=typeLabel, type=itemType))
-                else { existing.title=savedTitle; existing.username=userF.text.toString(); existing.password=passF.text.toString(); existing.category=typeLabel; existing.type=itemType }
-                vault.save(items);vaultTypeFilter=itemType;showCategoryMenu()
-        });fields.addView(darkActionButton(if(itemType=="PIN") "ESCI" else "ANNULLA"){showCategoryMenu()})
-        if(existing!=null){var confirm=false;val delete=darkTextButton("Elimina elemento"){};delete.setOnClickListener{if(!confirm){confirm=true;delete.text="Tocca ancora per eliminare";delete.setTextColor(Color.rgb(255,105,105))}else{items.remove(existing);vault.save(items);showCategoryMenu()}};fields.addView(delete)}
-        setDarkScreen(box,false)
+            if ((itemType != "EMAIL" && titleF.text.toString().isBlank()) || passF.text.toString().isBlank()) {
+                toast(if (itemType == "PIN") "Inserisci banca e PIN" else "Completa i campi richiesti")
+                return@save
+            }
+            if (itemType != "PIN" && userF.text.toString().isBlank()) {
+                toast(if (itemType == "ACCOUNT" || itemType == "EMAIL") "Inserisci l’email" else "Inserisci utente o email")
+                return@save
+            }
+            val savedTitle = if (itemType == "EMAIL") userF.text.toString() else titleF.text.toString()
+            if (existing == null) {
+                items.add(VaultItem(
+                    title = savedTitle,
+                    username = userF.text.toString(),
+                    password = passF.text.toString(),
+                    url = if (itemType == "PIN") "" else urlF.text.toString(),
+                    category = typeLabel,
+                    type = itemType
+                ))
+            } else {
+                existing.title = savedTitle
+                existing.username = userF.text.toString()
+                existing.password = passF.text.toString()
+                if (itemType != "PIN") existing.url = urlF.text.toString()
+                existing.category = typeLabel
+                existing.type = itemType
+            }
+            vault.save(items)
+            vaultTypeFilter = itemType
+            showCategoryMenu()
+        })
+        fields.addView(darkActionButton(if (itemType == "PIN") "ESCI" else "ANNULLA") { showCategoryMenu() })
+        if (existing != null) addDeleteButton(fields, existing)
+        setDarkScreen(box, false)
+    }
+
+    private fun addDeleteButton(fields: LinearLayout, existing: VaultItem) {
+        var confirm = false
+        val delete = darkTextButton("Elimina elemento") {}
+        delete.setOnClickListener {
+            if (!confirm) {
+                confirm = true
+                delete.text = "Tocca ancora per eliminare"
+                delete.setTextColor(Color.rgb(255, 105, 105))
+            } else {
+                items.remove(existing)
+                vault.save(items)
+                showCategoryMenu()
+            }
+        }
+        fields.addView(delete)
+    }
+
+    private fun startCardScan() {
+        val photo = cacheDir.resolve("passwordsafe_card_scan.jpg")
+        runCatching { if (photo.exists()) photo.delete() }
+        pendingCardPhotoUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", photo)
+        scanCardPhoto.launch(pendingCardPhotoUri)
+    }
+
+    private fun recognizeCard(uri: Uri) {
+        val image = runCatching { InputImage.fromFilePath(this, uri) }.getOrElse {
+            toast("Impossibile leggere la foto")
+            return
+        }
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            .process(image)
+            .addOnSuccessListener { result ->
+                val raw = result.text
+                val number = Regex("(?:\\d[ -]?){13,19}")
+                    .findAll(raw)
+                    .map { it.value.filter(Char::isDigit) }
+                    .filter { it.length in 13..19 }
+                    .toList()
+                    .let { values -> values.firstOrNull(::passesLuhn) ?: values.maxByOrNull { it.length } }
+
+                val expiryMatch = Regex("(0[1-9]|1[0-2])\\s*[/.-]\\s*(?:20)?(\\d{2})").find(raw)
+                val expiry = expiryMatch?.let { "${it.groupValues[1]}/${it.groupValues[2]}" }
+
+                val ignored = listOf(
+                    "VISA", "MASTERCARD", "DEBIT", "CREDIT", "VALID", "THRU",
+                    "CARD", "BANCA", "BANK", "ELECTRON", "MAESTRO", "SCADENZA"
+                )
+                val holder = raw.lines()
+                    .map { it.trim() }
+                    .filter { line ->
+                        line.length in 5..35 && line.none(Char::isDigit) &&
+                            line.count { it == ' ' } in 1..4
+                    }
+                    .filter { line -> ignored.none { word -> line.uppercase().contains(word) } }
+                    .maxByOrNull { line -> line.count(Char::isLetter) }
+
+                number?.let { pendingCardNumberField?.setText(it.chunked(4).joinToString(" ")) }
+                expiry?.let { pendingCardExpiryField?.setText(it) }
+                holder?.let { pendingCardHolderField?.setText(it) }
+
+                if (number == null && expiry == null && holder == null) {
+                    toast("Non sono riuscito a leggere i dati. Prova con più luce e carta ben dritta.")
+                } else {
+                    toast("Dati letti. Controllali prima di salvare.")
+                }
+                cacheDir.resolve("passwordsafe_card_scan.jpg").delete()
+                pendingCardPhotoUri = null
+            }
+            .addOnFailureListener {
+                cacheDir.resolve("passwordsafe_card_scan.jpg").delete()
+                pendingCardPhotoUri = null
+                toast("Impossibile analizzare la carta")
+            }
+    }
+
+    private fun passesLuhn(number: String): Boolean {
+        var sum = 0
+        var doubleDigit = false
+        for (i in number.indices.reversed()) {
+            var digit = number[i] - '0'
+            if (doubleDigit) {
+                digit *= 2
+                if (digit > 9) digit -= 9
+            }
+            sum += digit
+            doubleDigit = !doubleDigit
+        }
+        return number.length in 13..19 && sum % 10 == 0
+    }
+
+    private fun isAutofillEnabled(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        return getSystemService(AutofillManager::class.java)?.hasEnabledAutofillServices() == true
+    }
+
+    private fun openAutofillSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            toast("La compilazione automatica richiede Android 8 o successivo")
+            return
+        }
+        val direct = Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        runCatching { startActivity(direct) }
+            .onFailure { runCatching { startActivity(Intent(Settings.ACTION_AUTOFILL_SETTINGS)) } }
     }
 
     private fun showGeneratedPassword() {
