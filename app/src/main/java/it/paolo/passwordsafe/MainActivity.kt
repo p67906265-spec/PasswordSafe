@@ -550,7 +550,7 @@ class MainActivity : AppCompatActivity() {
         val body=column().apply {
             setPadding(0,0,0,dp(50));setBackgroundColor(panelBg());addView(pageHeader("Impostazioni"){showCategoryMenu()})
             addView(menuActionRow("Dashboard sicurezza","◉"){showSecurityDashboard()})
-            addView(menuActionRow("Backup e ripristino","↥"){showBackupPage()})
+            addView(menuActionRow("Backup automatico e ripristino","↥"){showBackupPage()})
             addView(menuActionRow("Cambia password","●"){showChangeMasterPassword()})
             addView(toggleMenuRow("Accesso con impronta","◎",security.biometricEnabled){security.biometricEnabled=it})
             addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
@@ -563,7 +563,7 @@ class MainActivity : AppCompatActivity() {
             addView(menuActionRow("Blocca cassaforte","▣"){vault.lock();items.clear();showLogin(false)})
         };setDarkScreen(body,false)
     }
-    private fun showBackupPage(){val body=column().apply{setPadding(0,0,0,dp(50));setBackgroundColor(panelBg());addView(pageHeader("Backup e ripristino"){showSettingsMenu()});addView(infoText("Il file è cifrato e può essere salvato su Google Drive dal selettore Android."));addView(menuActionRow("Crea backup cifrato","↥"){askBackupPin()});addView(menuActionRow("Ripristina un backup","↧"){openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))})};setDarkScreen(body,false)}
+    private fun showBackupPage(){val body=column().apply{setPadding(0,0,0,dp(50));setBackgroundColor(panelBg());addView(pageHeader("Backup e ripristino"){showSettingsMenu()});addView(infoText("Backup automatico attivo: Android può salvare nel backup del tuo account Google solo la cassaforte cifrata e i dati minimi necessari al ripristino. Il backup manuale resta disponibile come copia aggiuntiva."));addView(menuActionRow("Crea anche backup manuale","↥"){askBackupPin()});addView(menuActionRow("Ripristina backup manuale","↧"){openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))})};setDarkScreen(body,false)}
     private fun showSecurityDashboard(){
         val protected=items.filter{it.type!="PIN" && it.type!="CARD" && it.type!="PASSKEY" && it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
         val reused=protected.filter{it.password in reusedValues};val weak=protected.filter{!isStrongPassword(it.password)};val strong=protected.filter{isStrongPassword(it.password)&&it.password !in reusedValues}
