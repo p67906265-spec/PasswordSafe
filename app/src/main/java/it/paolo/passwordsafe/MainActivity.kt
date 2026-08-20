@@ -62,10 +62,14 @@ class MainActivity : AppCompatActivity() {
     private var pendingCardExpiryField: EditText? = null
     private var pendingCardHolderField: EditText? = null
     private var pendingCardPhotoUri: Uri? = null
+    private var pendingCardPhotoPath: String? = null
 
     private val scanCardPhoto = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         val uri = pendingCardPhotoUri
         if (!success || uri == null) {
+            cleanupCardScanFiles()
+            pendingCardPhotoUri = null
+            pendingCardPhotoPath = null
             toast("Scansione annullata")
         } else {
             recognizeCard(uri)
@@ -86,6 +90,15 @@ class MainActivity : AppCompatActivity() {
         val darkTheme = getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
         AppCompatDelegate.setDefaultNightMode(if(darkTheme) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
+        pendingCardPhotoPath = savedInstanceState?.getString("pending_card_photo_path")
+        val restoredPhoto = pendingCardPhotoPath?.let { java.io.File(it) }
+        if (restoredPhoto != null && restoredPhoto.exists()) {
+            pendingCardPhotoUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", restoredPhoto)
+        } else {
+            pendingCardPhotoPath = null
+            pendingCardPhotoUri = null
+            cleanupCardScanFiles()
+        }
         WindowCompat.setDecorFitsSystemWindows(window, true)
         security = SecurityStore(this)
         vault = VaultStore(this)
@@ -93,6 +106,11 @@ class MainActivity : AppCompatActivity() {
         showLaunchAnimation {
             if (security.configured || security.masterConfigured) showLogin() else showSetup()
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        pendingCardPhotoPath?.let { outState.putString("pending_card_photo_path", it) }
+        super.onSaveInstanceState(outState)
     }
 
     private fun showSetup() {
@@ -950,14 +968,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCardScan() {
-        val photo = cacheDir.resolve("passwordsafe_card_scan.jpg")
-        runCatching { if (photo.exists()) photo.delete() }
+        cleanupCardScanFiles()
+        val photo = cacheDir.resolve("passwordsafe_card_scan_${System.currentTimeMillis()}.jpg")
+        pendingCardPhotoPath = photo.absolutePath
         pendingCardPhotoUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", photo)
         scanCardPhoto.launch(pendingCardPhotoUri)
     }
 
+    private fun cleanupCardScanFiles() {
+        runCatching {
+            cacheDir.listFiles()?.filter { it.name.startsWith("passwordsafe_card_scan_") || it.name == "passwordsafe_card_scan.jpg" }
+                ?.forEach { file -> runCatching { file.delete() } }
+        }
+    }
+
     private fun recognizeCard(uri: Uri) {
         val image = runCatching { InputImage.fromFilePath(this, uri) }.getOrElse {
+            cleanupCardScanFiles()
+            pendingCardPhotoUri = null
+            pendingCardPhotoPath = null
             toast("Impossibile leggere la foto")
             return
         }
@@ -972,8 +1001,7 @@ class MainActivity : AppCompatActivity() {
                     .toList()
                     .let { values -> values.firstOrNull(::passesLuhn) ?: values.maxByOrNull { it.length } }
 
-                val expiryMatch = Regex("(0[1-9]|1[0-2])\\s*[/.-]\\s*(?:20)?(\\d{2})").find(raw)
-                val expiry = expiryMatch?.let { "${it.groupValues[1]}/${it.groupValues[2]}" }
+                val expiry = extractCardExpiry(raw)
 
                 val ignored = listOf(
                     "VISA", "MASTERCARD", "DEBIT", "CREDIT", "VALID", "THRU",
@@ -997,14 +1025,60 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     toast("Dati letti. Controllali prima di salvare.")
                 }
-                cacheDir.resolve("passwordsafe_card_scan.jpg").delete()
+                cleanupCardScanFiles()
                 pendingCardPhotoUri = null
+                pendingCardPhotoPath = null
             }
             .addOnFailureListener {
-                cacheDir.resolve("passwordsafe_card_scan.jpg").delete()
+                cleanupCardScanFiles()
                 pendingCardPhotoUri = null
+                pendingCardPhotoPath = null
                 toast("Impossibile analizzare la carta")
             }
+    }
+
+    private fun extractCardExpiry(raw: String): String? {
+        data class DateCandidate(val month: Int, val year: Int, val formatted: String, val score: Int)
+
+        val normalized = raw.uppercase()
+        val dateRegex = Regex("(0[1-9]|1[0-2])\\s*[/.-]\\s*(?:20)?(\\d{2})")
+        val positiveWords = listOf(
+            "VALID THRU", "VALID THROUGH", "VALID TO", "VALID UNTIL", "GOOD THRU",
+            "EXPIRES", "EXPIRY", "EXP DATE", "EXP", "SCADENZA", "VALIDA FINO", "VALIDO FINO"
+        )
+        val negativeWords = listOf(
+            "VALID FROM", "VALID SINCE", "VALIDA DAL", "VALIDO DAL", "ISSUED", "ISSUE DATE", "START DATE"
+        )
+
+        val candidates = dateRegex.findAll(normalized).map { match ->
+            val month = match.groupValues[1].toInt()
+            val yy = match.groupValues[2].toInt()
+            val year = 2000 + yy
+            val from = (match.range.first - 42).coerceAtLeast(0)
+            val to = (match.range.last + 42).coerceAtMost(normalized.lastIndex)
+            val nearby = normalized.substring(from, to + 1)
+
+            var score = 0
+            positiveWords.forEach { word ->
+                val idx = nearby.indexOf(word)
+                if (idx >= 0) score += if (idx <= match.range.first - from) 8 else 5
+            }
+            negativeWords.forEach { word ->
+                val idx = nearby.indexOf(word)
+                if (idx >= 0) score -= if (idx <= match.range.first - from) 10 else 6
+            }
+            DateCandidate(month, year, "%02d/%02d".format(month, yy), score)
+        }.toList()
+
+        if (candidates.isEmpty()) return null
+        val positivelyIdentified = candidates.filter { it.score > 0 }
+        return if (positivelyIdentified.isNotEmpty()) {
+            positivelyIdentified.maxWithOrNull(compareBy<DateCandidate> { it.score }.thenBy { it.year }.thenBy { it.month })?.formatted
+        } else {
+            // Se la carta mostra sia "valida dal" sia la scadenza ma le etichette non vengono lette bene,
+            // la scadenza è normalmente la data cronologicamente più lontana.
+            candidates.maxWithOrNull(compareBy<DateCandidate> { it.year }.thenBy { it.month })?.formatted
+        }
     }
 
     private fun passesLuhn(number: String): Boolean {
