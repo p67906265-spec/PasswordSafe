@@ -822,20 +822,47 @@ class MainActivity : AppCompatActivity() {
                         if(existing.isEmpty()) {
                             showItemDialog(null,"LOGIN",app.label,app.packageName)
                         } else {
-                            AlertDialog.Builder(this@MainActivity)
-                                .setTitle(app.label)
-                                .setItems(arrayOf("Apri credenziale salvata","Aggiungi un altro account")) { _, which ->
-                                    if(which==0) showItemDialog(existing.first())
-                                    else showItemDialog(null,"LOGIN",app.label,app.packageName)
-                                }
-                                .setNegativeButton("Annulla",null)
-                                .show()
+                            showInstalledAppCredentialMenu(app.label, app.packageName, existing)
                         }
                     }
                 })
             }
         }
         setDarkScreen(body,false)
+    }
+
+    private fun showInstalledAppCredentialMenu(appLabel:String, appPackage:String, credentials:List<VaultItem>) {
+        if(credentials.size == 1) {
+            showInstalledAppCredentialActions(appLabel, appPackage, credentials.first())
+            return
+        }
+        val labels = credentials.indices.map { "Credenziale ${it + 1}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(appLabel)
+            .setItems(labels) { _, which ->
+                credentials.getOrNull(which)?.let { showInstalledAppCredentialActions(appLabel, appPackage, it) }
+            }
+            .setNeutralButton("Aggiungi account") { _, _ ->
+                showItemDialog(null, "LOGIN", appLabel, appPackage)
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    private fun showInstalledAppCredentialActions(appLabel:String, appPackage:String, item:VaultItem) {
+        val actions = arrayOf("Copia account / email", "Copia password", "Apri credenziale", "Aggiungi un altro account")
+        AlertDialog.Builder(this)
+            .setTitle(appLabel)
+            .setItems(actions) { _, which ->
+                when(which) {
+                    0 -> copySecure("Account", item.username)
+                    1 -> copySecure("Password", item.password)
+                    2 -> showItemDialog(item)
+                    3 -> showItemDialog(null, "LOGIN", appLabel, appPackage)
+                }
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
     }
 
     private fun showCreateTypeMenu() {
@@ -1495,9 +1522,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun generatedPassword(length:Int=20,letters:Boolean=true,numbers:Boolean=true,symbols:Boolean=true): String {
-        val pool=buildString{if(letters)append("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");if(numbers)append("23456789");if(symbols)append("!@#%&*+-_")}
-        val random=java.security.SecureRandom()
-        return (1..length).joinToString(""){pool[random.nextInt(pool.length)].toString()}
+        val random = java.security.SecureRandom()
+        val selected = mutableListOf<String>()
+        if(letters) selected += "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+        if(numbers) selected += "23456789"
+        if(symbols) selected += "!@#%&*+-_"
+        if(selected.isEmpty()) return ""
+
+        val safeLength = length.coerceAtLeast(selected.size)
+        val pool = selected.joinToString("")
+        val chars = mutableListOf<Char>()
+
+        // Garantisce almeno un carattere per ogni categoria selezionata.
+        selected.forEach { group ->
+            chars += group[random.nextInt(group.length)]
+        }
+        repeat(safeLength - chars.size) {
+            chars += pool[random.nextInt(pool.length)]
+        }
+
+        // Mescola la posizione dei caratteri obbligatori usando SecureRandom.
+        for(i in chars.lastIndex downTo 1) {
+            val j = random.nextInt(i + 1)
+            val tmp = chars[i]
+            chars[i] = chars[j]
+            chars[j] = tmp
+        }
+        return chars.joinToString("")
     }
 
     private fun showBackupMenu() {
