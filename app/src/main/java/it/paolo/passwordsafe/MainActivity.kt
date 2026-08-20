@@ -384,14 +384,14 @@ class MainActivity : AppCompatActivity() {
 
         val groups = listOf(
             listOf(
-                Triple("ACCOUNT", "Account", R.drawable.ic_account),
-                Triple("PIN", "PIN", R.drawable.ic_pin),
-                Triple("LOGIN", "Login", R.drawable.ic_login)
+                Triple("ACCOUNT", "Account", "👤"),
+                Triple("PIN", "PIN", "🔢"),
+                Triple("LOGIN", "Login", "🔑")
             ),
             listOf(
-                Triple("EMAIL", "Email", R.drawable.ic_email),
-                Triple("CARD", "Carte", R.drawable.ic_card),
-                Triple("PASSKEY", "Passkey", R.drawable.ic_passkey)
+                Triple("EMAIL", "Email", "✉️"),
+                Triple("CARD", "Carte", "💳"),
+                Triple("PASSKEY", "Passkey", "🪪")
             )
         )
         groups.forEachIndexed { rowIndex, row ->
@@ -444,7 +444,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun filterChip(label:String,type:String)=MaterialButton(this).apply{text=label;textSize=10f;isAllCaps=false;minWidth=0;insetTop=0;insetBottom=0;setPadding(dp(2),0,dp(2),0);cornerRadius=dp(22);val selected=(type=="TUTTI"&&vaultTypeFilter=="NONE")||vaultTypeFilter==type;setTextColor(if(selected)Color.WHITE else primaryText());setBackgroundColor(if(selected)Color.rgb(105,87,238) else chipBg());setOnClickListener{vaultTypeFilter=if(type=="TUTTI")"NONE" else type;showCategoryMenu()}}
 
-    private fun categoryIconButton(label:String,type:String,iconRes:Int)=LinearLayout(this).apply {
+    private fun categoryIconButton(label:String,type:String,icon:String)=LinearLayout(this).apply {
         val selected = vaultTypeFilter == type
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
@@ -454,11 +454,12 @@ class MainActivity : AppCompatActivity() {
             cornerRadius = dp(18).toFloat()
             setStroke(dp(if (selected) 2 else 1), if (selected) Color.rgb(238, 199, 62) else if (isDarkTheme()) Color.rgb(59, 48, 116) else Color.rgb(222, 218, 235))
         }
-        addView(ImageView(this@MainActivity).apply {
-            setImageResource(iconRes)
-            setColorFilter(if (selected) Color.rgb(73, 155, 255) else Color.rgb(180, 172, 220))
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-        }, LinearLayout.LayoutParams(dp(28), dp(28)).apply { setMargins(0, 0, 0, dp(8)) })
+        addView(TextView(this@MainActivity).apply {
+            text = icon
+            textSize = 25f
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+        }, LinearLayout.LayoutParams(dp(42), dp(34)).apply { setMargins(0, 0, 0, dp(7)) })
         addView(TextView(this@MainActivity).apply {
             text = label
             textSize = 12f
