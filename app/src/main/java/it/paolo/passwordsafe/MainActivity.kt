@@ -462,7 +462,8 @@ class MainActivity : AppCompatActivity() {
                 "LOGIN" -> "LOGIN"
                 "EMAIL" -> "EMAIL"
                 "CARD" -> "CARTE"
-                else -> "PASSKEY"
+                "PASSKEY" -> "PASSKEY"
+                else -> "APP"
             }
             list.addView(TextView(this).apply {
                 text = label
@@ -473,9 +474,16 @@ class MainActivity : AppCompatActivity() {
                 setPadding(dp(6), 0, dp(6), dp(10))
             })
             // Le credenziali collegate a un'app restano internamente LOGIN/ACCOUNT/EMAIL
-            // per l'Autofill, ma nella Home devono comparire esclusivamente nella sezione App.
-            val shown = items.filter {
-                it.type == vaultTypeFilter && it.appPackage.isBlank()
+            // per l'Autofill, ma nella Home compaiono esclusivamente quando è selezionato App.
+            // App usa lo stesso elenco sotto ai pulsanti delle altre categorie: nessuna pagina separata.
+            val shown = if (vaultTypeFilter == "APP") {
+                items.filter {
+                    it.appPackage.isNotBlank() && it.type in setOf("ACCOUNT", "LOGIN", "EMAIL")
+                }
+            } else {
+                items.filter {
+                    it.type == vaultTypeFilter && it.appPackage.isBlank()
+                }
             }.sortedBy { it.title.lowercase() }
             if (shown.isEmpty()) list.addView(infoText("Nessun elemento trovato.")) else shown.forEach { list.addView(itemListRow(it)) }
         }
@@ -509,12 +517,8 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
         })
         setOnClickListener {
-            if(type == "APP") {
-                showInstalledApps("SAVED", true)
-            } else {
-                vaultTypeFilter = type
-                showCategoryMenu()
-            }
+            vaultTypeFilter = type
+            showCategoryMenu()
         }
     }
 
@@ -539,7 +543,7 @@ class MainActivity : AppCompatActivity() {
         val scroll=ScrollView(this).apply{setBackgroundColor(appBg());addView(content)}
         val frame=FrameLayout(this).apply {
             setBackgroundColor(appBg());addView(scroll,FrameLayout.LayoutParams(-1,-1))
-            if(showFab)addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=27f;cornerRadius=dp(30);setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(105,87,238));elevation=12f;setOnClickListener{if(vaultTypeFilter=="NONE")showCreateTypeMenu()else showItemDialog(null,vaultTypeFilter)}},FrameLayout.LayoutParams(dp(60),dp(60),Gravity.BOTTOM or Gravity.END).apply{setMargins(0,0,dp(24),dp(24))})
+            if(showFab)addView(MaterialButton(this@MainActivity).apply{text="＋";textSize=27f;cornerRadius=dp(30);setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(105,87,238));elevation=12f;setOnClickListener{when(vaultTypeFilter){"NONE"->showCreateTypeMenu();"APP"->showInstalledApps("NEW",true);else->showItemDialog(null,vaultTypeFilter)}}},FrameLayout.LayoutParams(dp(60),dp(60),Gravity.BOTTOM or Gravity.END).apply{setMargins(0,0,dp(24),dp(24))})
         }
         ViewCompat.setOnApplyWindowInsetsListener(frame){view,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());view.setPadding(0,bars.top,0,bars.bottom);insets}
         setContentView(frame)
@@ -609,7 +613,10 @@ class MainActivity : AppCompatActivity() {
             setTextColor(if (isDarkTheme()) Color.rgb(101, 90, 163) else Color.rgb(150, 142, 184))
         }, LinearLayout.LayoutParams(dp(24), -1))
 
-        setOnClickListener { vaultTypeFilter = item.type; showItemDialog(item) }
+        setOnClickListener {
+            if (vaultTypeFilter != "APP") vaultTypeFilter = item.type
+            showItemDialog(item)
+        }
     }
 
     private fun loadServiceLogo(item: VaultItem, image: ImageView, fallback: TextView) {
@@ -782,7 +789,9 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(panelBg())
             addView(pageHeader(if(fromMain) "App" else "App installate"){ if(fromMain) showCategoryMenu() else showSettingsMenu() })
             addView(infoText(
-                if(fromMain)
+                if(fromMain && filter == "NEW")
+                    "Scegli un'app a cui associare una nuova credenziale. Dopo il salvataggio comparirà sotto il pulsante App nella schermata principale."
+                else if(fromMain)
                     "Qui trovi le app che hai selezionato e a cui hai associato account o password."
                 else
                     "Tocca un'app per creare una credenziale collegata. Sono mostrate le app avviabili del telefono; Android non permette a PasswordSafe di leggere le password già presenti nelle altre app."
@@ -1171,7 +1180,8 @@ class MainActivity : AppCompatActivity() {
                 if(!prefillPackage.isNullOrBlank()) existing.appPackage = prefillPackage
             }
             vault.save(items)
-            vaultTypeFilter = itemType
+            val linkedToApp = existing?.appPackage?.isNotBlank() == true || !prefillPackage.isNullOrBlank()
+            vaultTypeFilter = if (linkedToApp) "APP" else itemType
             showCategoryMenu()
         }
         addCompactAction(if (itemType == "PIN") "ESCI" else "ANNULLA") { showCategoryMenu() }
