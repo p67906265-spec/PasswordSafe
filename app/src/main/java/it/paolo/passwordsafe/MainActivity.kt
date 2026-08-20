@@ -1165,7 +1165,7 @@ class MainActivity : AppCompatActivity() {
             vault.save(items)
             vaultTypeFilter = itemType
             showCategoryMenu()
-        })
+        }
         addCompactAction(if (itemType == "PIN") "ESCI" else "ANNULLA") { showCategoryMenu() }
         if (existing != null) addDeleteButton(fields, existing)
         setDarkScreen(box, false)
