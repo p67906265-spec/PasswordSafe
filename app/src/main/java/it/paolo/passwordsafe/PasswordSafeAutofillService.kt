@@ -129,7 +129,7 @@ class PasswordSafeAutofillService : AutofillService() {
         if (appPackage.isNotBlank() && normalizedTarget == appPackage) return true
 
         val title = item.title.lowercase().replace(" ", "")
-        val domain = normalizeDomain(item.url)
+        val domain = if (item.urlLabel.equals("SITO / DOMINIO", true)) normalizeDomain(item.url) else ""
         val compactTarget = normalizedTarget.replace(" ", "")
         return (domain.isNotBlank() && (compactTarget.contains(domain) || domain.contains(compactTarget))) ||
             (title.length >= 3 && compactTarget.contains(title))

@@ -675,7 +675,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun serviceDomain(item: VaultItem): String? {
-        val raw=item.url.trim()
+        val raw=if (item.urlLabel.equals("SITO / DOMINIO", true)) item.url.trim() else ""
         if(raw.isNotBlank()){
             val candidate=runCatching {
                 val normalized=if(raw.startsWith("http://")||raw.startsWith("https://")) raw else "https://$raw"
@@ -1097,7 +1097,8 @@ class MainActivity : AppCompatActivity() {
             existing?.username ?: ""
         )
         val passF = darkEditorField(if (itemType == "PIN") "PIN" else "Password", existing?.password ?: "")
-        val urlF = darkEditorField("Sito / dominio (es. amazon.it)", existing?.url ?: "")
+        var extraFieldLabel = existing?.urlLabel?.takeIf { it.isNotBlank() } ?: "SITO / DOMINIO"
+        val urlF = darkEditorField(extraFieldHint(extraFieldLabel), existing?.url ?: "")
 
         if (itemType == "PIN") {
             passF.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
@@ -1106,7 +1107,26 @@ class MainActivity : AppCompatActivity() {
         if (itemType != "PIN") addEditorField(fields, if (itemType == "ACCOUNT" || itemType == "EMAIL") "EMAIL" else "EMAIL / UTENTE", userF)
         addEditorField(fields, if (itemType == "PIN") "PIN" else "PASSWORD", passF)
         if (itemType == "ACCOUNT" || itemType == "LOGIN" || itemType == "EMAIL") {
-            addEditorField(fields, "SITO / DOMINIO PER AUTOFILL", urlF)
+            if (itemType == "LOGIN") {
+                val labelView = TextView(this).apply {
+                    text = "$extraFieldLabel  ▾"
+                    textSize = 9f
+                    setTextColor(if (isDarkTheme()) Color.rgb(192, 181, 255) else Color.rgb(82, 63, 184))
+                    setTypeface(typeface, 1)
+                    setPadding(dp(3), dp(4), 0, dp(2))
+                    setOnClickListener {
+                        showLoginExtraFieldLabelPicker(extraFieldLabel) { selected ->
+                            extraFieldLabel = selected
+                            text = "$extraFieldLabel  ▾"
+                            urlF.hint = extraFieldHint(extraFieldLabel)
+                        }
+                    }
+                }
+                fields.addView(labelView)
+                fields.addView(urlF)
+            } else {
+                addEditorField(fields, "SITO / DOMINIO PER AUTOFILL", urlF)
+            }
             val linkedPackage = existing?.appPackage?.takeIf { it.isNotBlank() } ?: prefillPackage.orEmpty()
             if(linkedPackage.isNotBlank()) {
                 fields.addView(infoText("App collegata: ${prefillTitle ?: existing?.title ?: linkedPackage}. L'Autofill userà il collegamento all'app anche senza compilare il dominio."))
@@ -1184,13 +1204,15 @@ class MainActivity : AppCompatActivity() {
                     url = if (itemType == "PIN") "" else urlF.text.toString(),
                     category = typeLabel,
                     type = itemType,
-                    appPackage = if(itemType=="PIN") "" else prefillPackage.orEmpty()
+                    appPackage = if(itemType=="PIN") "" else prefillPackage.orEmpty(),
+                    urlLabel = if (itemType == "LOGIN") extraFieldLabel else "SITO / DOMINIO"
                 ))
             } else {
                 existing.title = savedTitle
                 existing.username = userF.text.toString()
                 existing.password = passF.text.toString()
                 if (itemType != "PIN") existing.url = urlF.text.toString()
+                if (itemType == "LOGIN") existing.urlLabel = extraFieldLabel
                 existing.category = typeLabel
                 existing.type = itemType
                 if(!prefillPackage.isNullOrBlank()) existing.appPackage = prefillPackage
@@ -1655,6 +1677,40 @@ class MainActivity : AppCompatActivity() {
     }
     private fun dialogField(hint:String,value:String)=EditText(this).apply { this.hint=hint; setText(value); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY); setPadding(18,20,18,20) }
     private fun styledDialogField(hint:String,value:String)=dialogField(hint,value).apply{background=GradientDrawable().apply{setColor(Color.rgb(248,247,252));cornerRadius=dp(16).toFloat();setStroke(dp(1),Color.rgb(218,216,231))};layoutParams=LinearLayout.LayoutParams(-1,dp(58)).apply{setMargins(0,dp(5),0,dp(5))};setPadding(dp(18),0,dp(18),0)}
+    private fun extraFieldHint(label:String):String = when(label.trim().uppercase()) {
+        "SITO / DOMINIO", "SITO/DOMINIO", "SITO", "DOMINIO" -> "Sito / dominio (es. amazon.it)"
+        "PIN" -> "PIN"
+        "NOME" -> "Nome"
+        else -> label.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    }
+
+    private fun showLoginExtraFieldLabelPicker(current:String, onSelected:(String)->Unit) {
+        val options = arrayOf("SITO / DOMINIO", "PIN", "NOME", "ALTRO…")
+        AlertDialog.Builder(this)
+            .setTitle("Nome dell'ultima casella")
+            .setSingleChoiceItems(options, options.indexOfFirst { it.equals(current, true) }.takeIf { it >= 0 } ?: -1) { dialog, which ->
+                if (which < 3) {
+                    onSelected(options[which])
+                    dialog.dismiss()
+                } else {
+                    dialog.dismiss()
+                    val input = darkEditorField("Scrivi il nome della casella", if (current !in options) current else "")
+                    input.layoutParams = LinearLayout.LayoutParams(-1, dp(56)).apply { setMargins(dp(18), dp(4), dp(18), 0) }
+                    AlertDialog.Builder(this)
+                        .setTitle("Etichetta personalizzata")
+                        .setView(input)
+                        .setPositiveButton("OK") { _, _ ->
+                            val custom = input.text.toString().trim().uppercase()
+                            if (custom.isNotBlank()) onSelected(custom)
+                        }
+                        .setNegativeButton("ANNULLA", null)
+                        .show()
+                }
+            }
+            .setNegativeButton("ANNULLA", null)
+            .show()
+    }
+
     private fun darkEditorField(hint:String,value:String)=EditText(this).apply{this.hint=hint;setText(value);textSize=16f;setTextColor(primaryText());setHintTextColor(secondaryText());background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(14).toFloat();setStroke(dp(1),if(isDarkTheme()) Color.rgb(74,61,155) else Color.rgb(210,204,230))};layoutParams=LinearLayout.LayoutParams(-1,dp(56)).apply{setMargins(0,dp(2),0,dp(8))};setPadding(dp(16),0,dp(16),0)}
     private fun addEditorField(parent:LinearLayout,label:String,field:EditText){parent.addView(TextView(this).apply{text=label;textSize=9f;setTextColor(secondaryText());setTypeface(typeface,1);setPadding(dp(3),dp(4),0,0)});parent.addView(field)}
     private fun darkActionButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=11f;isAllCaps=false;maxLines=1;isSingleLine=true;ellipsize=android.text.TextUtils.TruncateAt.END;insetTop=0;insetBottom=0;setTextColor(if(label=="SALVA")Color.WHITE else if(isDarkTheme()) Color.rgb(238,199,62) else Color.rgb(75,58,180));setBackgroundColor(if(label=="SALVA")Color.rgb(105,87,238) else chipBg());cornerRadius=dp(12);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,dp(7),0,0)}}

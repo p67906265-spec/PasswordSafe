@@ -50,3 +50,9 @@ git push
 ```
 
 Questa è una versione iniziale. Gli account cifrati e il backup Google Drive verranno aggiunti nelle prossime versioni.
+
+
+## Novità 0.44
+- In Login l’ultima casella è personalizzabile: Sito / dominio, PIN, Nome oppure etichetta libera.
+- Solo quando l’etichetta è Sito / dominio il valore viene usato per il riconoscimento dominio Autofill.
+- Corretto il nome dell’APK/artifact GitHub Actions alla versione 0.44.
