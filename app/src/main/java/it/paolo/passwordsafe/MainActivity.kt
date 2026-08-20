@@ -649,7 +649,7 @@ class MainActivity : AppCompatActivity() {
             data = Uri.parse("package:$packageName")
         }
         runCatching { startActivity(direct) }
-            .onFailure { runCatching { startActivity(Intent(Settings.ACTION_AUTOFILL_SETTINGS)) } }
+            .onFailure { runCatching { startActivity(Intent(Settings.ACTION_SETTINGS)) } }
     }
 
     private fun showGeneratedPassword() {
