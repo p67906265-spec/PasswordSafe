@@ -852,7 +852,7 @@ class MainActivity : AppCompatActivity() {
                         if(existing.isEmpty()) {
                             showItemDialog(null,"LOGIN",app.label,app.packageName)
                         } else {
-                            showInstalledAppCredentialMenu(app.label, app.packageName, existing)
+                            showItemDialog(existing.first())
                         }
                     }
                 })
@@ -932,7 +932,7 @@ class MainActivity : AppCompatActivity() {
         }
         val fields = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(26), dp(24), dp(10))
+            setPadding(dp(24), dp(14), dp(24), dp(8))
         }
         box.addView(fields)
 
@@ -1081,9 +1081,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         fun addCompactAction(label:String, action:()->Unit) {
-            val btn = darkActionButton(label, action).apply { textSize = 12f }
-            fields.addView(btn, LinearLayout.LayoutParams(-1, dp(44)).apply {
-                setMargins(dp(18), dp(8), dp(18), 0)
+            val btn = darkActionButton(label, action).apply { textSize = 11f }
+            fields.addView(btn, LinearLayout.LayoutParams(-1, dp(40)).apply {
+                setMargins(dp(14), dp(6), dp(14), 0)
             })
         }
 
@@ -1095,7 +1095,7 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             addCompactAction("GENERA PASSWORD") { showPasswordGenerator { passF.setText(it) } }
-            addCompactAction("VERIFICA PASSWORD COMPROMESSA") {
+            addCompactAction("VERIFICA PASSWORD") {
                 val value = passF.text.toString()
                 if (value.isBlank()) {
                     toast("Inserisci prima una password")
@@ -1121,14 +1121,14 @@ class MainActivity : AppCompatActivity() {
             if (existing != null && (itemType == "ACCOUNT" || itemType == "EMAIL" || itemType == "LOGIN")) {
                 fields.addView(LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
-                    setPadding(dp(18), dp(8), dp(18), 0)
-                    val accountLabel = if (itemType == "ACCOUNT" || itemType == "EMAIL") "COPIA ACCOUNT" else "COPIA ACCOUNT"
+                    setPadding(dp(14), dp(6), dp(14), 0)
+                    val accountLabel = if (itemType == "EMAIL") "COPIA EMAIL" else "COPIA UTENTE"
                     addView(darkActionButton(accountLabel) {
-                        copySecure(if (itemType == "ACCOUNT" || itemType == "EMAIL") "Account / email" else "Account", userF.text.toString())
-                    }.apply { textSize = 12f }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(0, 0, dp(5), 0) })
+                        copySecure(if (itemType == "EMAIL") "Email" else "Utente", userF.text.toString())
+                    }.apply { textSize = 10.5f }, LinearLayout.LayoutParams(0, dp(42), 1f).apply { setMargins(0, 0, dp(4), 0) })
                     addView(darkActionButton("COPIA PASSWORD") {
                         copySecure("Password", passF.text.toString())
-                    }.apply { textSize = 12f }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(dp(5), 0, 0, 0) })
+                    }.apply { textSize = 10.5f }, LinearLayout.LayoutParams(0, dp(42), 1f).apply { setMargins(dp(4), 0, 0, 0) })
                 })
             }
         }
@@ -1622,7 +1622,7 @@ class MainActivity : AppCompatActivity() {
     private fun dialogField(hint:String,value:String)=EditText(this).apply { this.hint=hint; setText(value); setTextColor(Color.rgb(23,32,51)); setHintTextColor(Color.GRAY); setPadding(18,20,18,20) }
     private fun styledDialogField(hint:String,value:String)=dialogField(hint,value).apply{background=GradientDrawable().apply{setColor(Color.rgb(248,247,252));cornerRadius=dp(16).toFloat();setStroke(dp(1),Color.rgb(218,216,231))};layoutParams=LinearLayout.LayoutParams(-1,dp(58)).apply{setMargins(0,dp(5),0,dp(5))};setPadding(dp(18),0,dp(18),0)}
     private fun darkEditorField(hint:String,value:String)=EditText(this).apply{this.hint=hint;setText(value);textSize=16f;setTextColor(primaryText());setHintTextColor(secondaryText());background=GradientDrawable().apply{setColor(cardBg());cornerRadius=dp(14).toFloat();setStroke(dp(1),if(isDarkTheme()) Color.rgb(74,61,155) else Color.rgb(210,204,230))};layoutParams=LinearLayout.LayoutParams(-1,dp(58)).apply{setMargins(0,dp(4),0,dp(10))};setPadding(dp(16),0,dp(16),0)}
-    private fun addEditorField(parent:LinearLayout,label:String,field:EditText){parent.addView(TextView(this).apply{text=label;textSize=11f;setTextColor(secondaryText());setTypeface(typeface,1);setPadding(dp(3),dp(8),0,0)});parent.addView(field)}
+    private fun addEditorField(parent:LinearLayout,label:String,field:EditText){parent.addView(TextView(this).apply{text=label;textSize=10f;setTextColor(secondaryText());setTypeface(typeface,1);setPadding(dp(3),dp(6),0,0)});parent.addView(field)}
     private fun darkActionButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=13f;setTextColor(if(label=="SALVA")Color.WHITE else if(isDarkTheme()) Color.rgb(238,199,62) else Color.rgb(75,58,180));setBackgroundColor(if(label=="SALVA")Color.rgb(105,87,238) else chipBg());cornerRadius=dp(12);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(-1,dp(50)).apply{setMargins(0,dp(10),0,0)}}
     private fun darkTextButton(label:String,action:()->Unit)=MaterialButton(this).apply{text=label;textSize=13f;isAllCaps=false;setTextColor(Color.rgb(255,105,105));setBackgroundColor(Color.TRANSPARENT);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(-1,dp(48)).apply{setMargins(0,dp(5),0,0)}}
     private fun purpleLoginField(hint:String)=EditText(this).apply{this.hint=hint;inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD;textSize=16f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);setHintTextColor(Color.rgb(139,126,190));background=GradientDrawable().apply{setColor(Color.rgb(38,31,83));cornerRadius=dp(14).toFloat();setStroke(dp(1),Color.rgb(74,61,155))};layoutParams=LinearLayout.LayoutParams(-1,dp(62));setPadding(dp(16),0,dp(16),0)}
