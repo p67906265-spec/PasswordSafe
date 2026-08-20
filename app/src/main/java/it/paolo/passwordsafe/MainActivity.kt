@@ -668,6 +668,7 @@ class MainActivity : AppCompatActivity() {
             addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
             addView(menuActionRow("Compilazione automatica   ${if(isAutofillEnabled()) "✓" else ""}","↯"){openAutofillSettings()})
             addView(infoText("Per usare la compilazione automatica, attiva PasswordSafe come servizio Android. Per sicurezza la cassaforte deve essere già sbloccata."))
+            addView(menuActionRow("Passkey Android","🔑"){showPasskeyGuide()})
             addView(sectionLabel("TEMA"))
             val darkTheme=getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
             addView(menuActionRow("Tema chiaro   ${if(!darkTheme) "✓" else ""}","☀"){setAppTheme(false)})
@@ -675,7 +676,17 @@ class MainActivity : AppCompatActivity() {
             addView(menuActionRow("Blocca cassaforte","▣"){vault.lock();items.clear();showLogin(false)})
         };setDarkScreen(body,false)
     }
-    private fun showBackupPage(){val body=column().apply{setPadding(0,0,0,dp(50));setBackgroundColor(panelBg());addView(pageHeader("Backup e ripristino"){showSettingsMenu()});addView(infoText("Il backup è manuale e cifrato. Puoi salvarlo dove preferisci, anche su Google Drive, usando il selettore Android."));addView(menuActionRow("Crea backup cifrato","↥"){askBackupPin()});addView(menuActionRow("Ripristina backup","↧"){openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))})};setDarkScreen(body,false)}
+    private fun showBackupPage(){
+        val body=column().apply{
+            setPadding(0,0,0,dp(50));setBackgroundColor(panelBg())
+            addView(pageHeader("Backup e ripristino"){showSettingsMenu()})
+            addView(infoText("Il backup resta manuale e cifrato. Quando si apre il selettore Android scegli Google Drive come destinazione."))
+            addView(menuActionRow("Backup su Google Drive","↥"){askBackupPin()})
+            addView(menuActionRow("Ripristina da Google Drive","↧"){openBackupFile.launch(arrayOf("application/octet-stream","application/json","*/*"))})
+            addView(infoText("PasswordSafe non carica direttamente dati sui server Google: il file passa dal selettore documenti Android e viene salvato su Drive solo se scegli Drive."))
+        }
+        setDarkScreen(body,false)
+    }
     private fun showSecurityDashboard(){
         val protected=items.filter{it.type!="PIN" && it.type!="CARD" && it.type!="PASSKEY" && it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
         val reused=protected.filter{it.password in reusedValues};val weak=protected.filter{!isStrongPassword(it.password)};val strong=protected.filter{isStrongPassword(it.password)&&it.password !in reusedValues}
@@ -802,13 +813,20 @@ class MainActivity : AppCompatActivity() {
             val titleF = darkEditorField("Nome servizio", existing?.title ?: "")
             val userF = darkEditorField("Utente / email", existing?.username ?: "")
             val siteF = darkEditorField("Sito / dominio", existing?.url ?: "")
-            val providerF = darkEditorField("Dove è salvata la passkey", existing?.password ?: "Google Password Manager")
+            val providerF = darkEditorField("Gestore passkey", existing?.password ?: "Google Password Manager")
             val noteF = darkEditorField("Note", existing?.notes ?: "")
             addEditorField(fields, "SERVIZIO", titleF)
             addEditorField(fields, "UTENTE / EMAIL", userF)
             addEditorField(fields, "SITO / DOMINIO", siteF)
-            addEditorField(fields, "SALVATA IN", providerF)
+            addEditorField(fields, "GESTORE PASSKEY", providerF)
             addEditorField(fields, "NOTE", noteF)
+            fields.addView(infoText("La chiave privata della passkey non viene copiata in PasswordSafe. La crea il sito e la conserva il gestore credenziali Android scelto da te."))
+            fields.addView(darkActionButton("APRI GESTIONE PASSKEY ANDROID") { openCredentialProviderSettings() })
+            fields.addView(darkActionButton("APRI SITO PER CREARE / USARE PASSKEY") {
+                val raw = siteF.text.toString().trim()
+                if(raw.isBlank()) toast("Inserisci prima il sito o dominio") else openPasskeySite(raw)
+            })
+            fields.addView(darkActionButton("COME SI USA") { showPasskeyGuide() })
             fields.addView(darkActionButton("SALVA") save@{
                 if (titleF.text.toString().isBlank() || userF.text.toString().isBlank()) {
                     toast("Inserisci servizio e utente")
@@ -835,14 +853,6 @@ class MainActivity : AppCompatActivity() {
                 vaultTypeFilter = itemType
                 showCategoryMenu()
             })
-            if (existing != null && existing.url.isNotBlank()) {
-                fields.addView(darkActionButton("APRI SITO") {
-                    runCatching {
-                        val target = if (existing.url.startsWith("http")) existing.url else "https://${existing.url}"
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
-                    }.onFailure { toast("Impossibile aprire il sito") }
-                })
-            }
             fields.addView(darkActionButton("ANNULLA") { showCategoryMenu() })
             if (existing != null) addDeleteButton(fields, existing)
             setDarkScreen(box, false)
@@ -1094,6 +1104,36 @@ class MainActivity : AppCompatActivity() {
             doubleDigit = !doubleDigit
         }
         return number.length in 13..19 && sum % 10 == 0
+    }
+
+    private fun openPasskeySite(raw: String) {
+        runCatching {
+            val target = if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://$raw"
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+        }.onFailure { toast("Impossibile aprire il sito") }
+    }
+
+    private fun openCredentialProviderSettings() {
+        if (Build.VERSION.SDK_INT < 34) {
+            toast("La gestione unificata delle passkey richiede Android 14 o successivo")
+            runCatching { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }
+            return
+        }
+        runCatching { startActivity(Intent("android.settings.CREDENTIAL_PROVIDER")) }
+            .onFailure { runCatching { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) } }
+    }
+
+    private fun showPasskeyGuide() {
+        val body=column().apply{
+            setPadding(0,0,0,dp(50));setBackgroundColor(panelBg())
+            addView(pageHeader("Passkey Android"){showSettingsMenu()})
+            addView(infoText("1. Apri la gestione Passkey Android e scegli il gestore credenziali che vuoi usare, per esempio Google Password Manager."))
+            addView(infoText("2. Nel sito o nell'app del servizio entra in Sicurezza e scegli Crea passkey / Aggiungi passkey."))
+            addView(infoText("3. Android mostrerà il gestore credenziali. Conferma con impronta, volto o PIN del telefono."))
+            addView(infoText("4. In PasswordSafe puoi salvare il nome del servizio, l'utente e dove è conservata la passkey. La chiave privata resta nel gestore Android e non viene mostrata nell'app."))
+            addView(menuActionRow("Apri gestione passkey Android","🔑"){openCredentialProviderSettings()})
+        }
+        setDarkScreen(body,false)
     }
 
     private fun isAutofillEnabled(): Boolean {
