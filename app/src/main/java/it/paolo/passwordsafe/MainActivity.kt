@@ -1161,40 +1161,169 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPasswordGenerator(onGenerated:(String)->Unit) {
-        val panelBg=Color.rgb(38,31,83)
-        val textMain=Color.WHITE
-        val textSoft=Color.rgb(215,207,245)
-        val accent=Color.rgb(105,87,238)
-        val box=LinearLayout(this).apply{
-            orientation=LinearLayout.VERTICAL;setPadding(dp(22),dp(12),dp(22),dp(8))
-            background=GradientDrawable().apply{setColor(panelBg);cornerRadius=dp(22).toFloat()}
+        val panelColor = Color.rgb(42, 31, 91)
+        val rowColor = Color.rgb(57, 43, 122)
+        val borderColor = Color.rgb(119, 98, 255)
+        val cyan = Color.rgb(67, 220, 224)
+        val yellow = Color.rgb(248, 197, 58)
+        val textMain = Color.WHITE
+        val textSoft = Color.rgb(226, 220, 248)
+
+        fun rounded(color:Int, radius:Int, strokeColor:Int?=null, strokeWidth:Int=1)=GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radius).toFloat()
+            if(strokeColor != null) setStroke(dp(strokeWidth), strokeColor)
         }
-        fun option(label:String)=CheckBox(this).apply{
-            text=label;isChecked=true;textSize=19f;setTextColor(textMain);buttonTintList=android.content.res.ColorStateList.valueOf(accent);setPadding(0,dp(5),0,dp(5))
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = rounded(panelColor, 26, borderColor, 2)
         }
-        val letters=option("Lettere")
-        val numbers=option("Numeri")
-        val symbols=option("Caratteri speciali")
-        val lengthLabel=TextView(this).apply{text="Lunghezza: 16";textSize=19f;setTextColor(textSoft);setPadding(0,dp(14),0,dp(6))}
-        val seek=SeekBar(this).apply{max=24;progress=8;minHeight=dp(44);scaleY=1.55f;setPadding(0,dp(6),0,dp(6));progressTintList=android.content.res.ColorStateList.valueOf(accent);thumbTintList=android.content.res.ColorStateList.valueOf(Color.rgb(238,199,62))}
-        seek.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
-            override fun onProgressChanged(s:SeekBar?,progress:Int,fromUser:Boolean){lengthLabel.text="Lunghezza: ${progress+8}"}
-            override fun onStartTrackingTouch(s:SeekBar?){}
-            override fun onStopTrackingTouch(s:SeekBar?){}
+
+        content.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(this@MainActivity).apply {
+                text = "ϟ"
+                textSize = 30f
+                gravity = Gravity.CENTER
+                setTextColor(cyan)
+            }, LinearLayout.LayoutParams(dp(42), dp(46)).apply { setMargins(0,0,dp(8),0) })
+            addView(TextView(this@MainActivity).apply {
+                text = "GENERA PASSWORD"
+                textSize = 22f
+                setTextColor(textMain)
+                setTypeface(typeface, 1)
+                letterSpacing = 0.04f
+                gravity = Gravity.CENTER_VERTICAL
+            }, LinearLayout.LayoutParams(0, dp(46), 1f))
         })
-        box.addView(letters);box.addView(numbers);box.addView(symbols);box.addView(lengthLabel);box.addView(seek)
-        val dialog=AlertDialog.Builder(this).setTitle("Genera password").setView(box).setNegativeButton("ANNULLA",null).setPositiveButton("GENERA",null).create()
-        dialog.setOnShowListener{
-            dialog.window?.decorView?.setBackgroundColor(Color.rgb(22,16,52))
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.rgb(194,180,235))
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.rgb(238,199,62))
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
-                if(!letters.isChecked&&!numbers.isChecked&&!symbols.isChecked){toast("Seleziona almeno un tipo di carattere");return@setOnClickListener}
-                val value=generatedPassword(seek.progress+8,letters.isChecked,numbers.isChecked,symbols.isChecked)
-                dialog.dismiss();onGenerated(value)
+
+        fun optionRow(label:String): Pair<LinearLayout,CheckBox> {
+            val check = CheckBox(this).apply {
+                isChecked = true
+                buttonTintList = android.content.res.ColorStateList(
+                    arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                    intArrayOf(cyan, Color.rgb(193, 184, 231))
+                )
+                scaleX = 1.18f
+                scaleY = 1.18f
+            }
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), 0, dp(16), 0)
+                background = rounded(rowColor, 15, borderColor, 1)
+                addView(check, LinearLayout.LayoutParams(dp(52), dp(72)))
+                addView(TextView(this@MainActivity).apply {
+                    text = label
+                    textSize = 19f
+                    setTextColor(textSoft)
+                    gravity = Gravity.CENTER_VERTICAL
+                }, LinearLayout.LayoutParams(0, dp(72), 1f))
+                setOnClickListener { check.isChecked = !check.isChecked }
+            }
+            return row to check
+        }
+
+        val lettersPair = optionRow("Lettere")
+        val numbersPair = optionRow("Numeri")
+        val symbolsPair = optionRow("Caratteri speciali")
+        listOf(lettersPair.first, numbersPair.first, symbolsPair.first).forEachIndexed { index, row ->
+            content.addView(row, LinearLayout.LayoutParams(-1, dp(72)).apply {
+                setMargins(0, if(index==0) dp(18) else dp(10), 0, 0)
+            })
+        }
+        val letters = lettersPair.second
+        val numbers = numbersPair.second
+        val symbols = symbolsPair.second
+
+        val lengthLabel = TextView(this).apply {
+            text = "LUNGHEZZA: 16"
+            textSize = 15f
+            letterSpacing = 0.06f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, 1)
+            setTextColor(cyan)
+            background = rounded(Color.TRANSPARENT, 22, cyan, 1)
+        }
+        content.addView(lengthLabel, LinearLayout.LayoutParams(dp(170), dp(42)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            setMargins(0, dp(22), 0, dp(10))
+        })
+
+        val seek = SeekBar(this).apply {
+            max = 24
+            progress = 8
+            minHeight = dp(54)
+            progressTintList = android.content.res.ColorStateList.valueOf(cyan)
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(119, 98, 255))
+            thumbTintList = android.content.res.ColorStateList.valueOf(yellow)
+            scaleY = 1.18f
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        seek.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s:SeekBar?, progress:Int, fromUser:Boolean) {
+                lengthLabel.text = "LUNGHEZZA: ${progress + 8}"
+            }
+            override fun onStartTrackingTouch(s:SeekBar?) {}
+            override fun onStopTrackingTouch(s:SeekBar?) {}
+        })
+        content.addView(seek, LinearLayout.LayoutParams(-1, dp(58)))
+
+        val buttons = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(24), 0, 0)
+        }
+        val cancel = TextView(this).apply {
+            text = "ANNULLA"
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, 1)
+            setTextColor(Color.rgb(216, 208, 244))
+            background = rounded(Color.TRANSPARENT, 18, Color.rgb(216, 208, 244), 1)
+        }
+        val generate = TextView(this).apply {
+            text = "GENERA"
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, 1)
+            setTextColor(Color.rgb(22, 16, 52))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(yellow, cyan)
+            ).apply { cornerRadius = dp(18).toFloat() }
+        }
+        buttons.addView(cancel, LinearLayout.LayoutParams(0, dp(58), 1f).apply { setMargins(0,0,dp(8),0) })
+        buttons.addView(generate, LinearLayout.LayoutParams(0, dp(58), 1f).apply { setMargins(dp(8),0,0,0) })
+        content.addView(buttons)
+
+        val wrapper = FrameLayout(this).apply {
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            addView(content, FrameLayout.LayoutParams(-1, -2))
+        }
+        val dialog = AlertDialog.Builder(this).setView(wrapper).create()
+        cancel.setOnClickListener { dialog.dismiss() }
+        generate.setOnClickListener {
+            if(!letters.isChecked && !numbers.isChecked && !symbols.isChecked) {
+                toast("Seleziona almeno un tipo di carattere")
+                return@setOnClickListener
+            }
+            val value = generatedPassword(seek.progress + 8, letters.isChecked, numbers.isChecked, symbols.isChecked)
+            dialog.dismiss()
+            onGenerated(value)
+        }
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+                setDimAmount(0.70f)
+                attributes = attributes.apply { width = (resources.displayMetrics.widthPixels * 0.94f).toInt() }
             }
         }
         dialog.show()
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.94f).toInt(), android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun checkCompromisedPassword(password:String,onResult:(Int?)->Unit) {
