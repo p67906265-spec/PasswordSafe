@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="PasswordSafeDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="colorPrimary">#A99BFF</item>
+        <item name="colorAccent">#A99BFF</item>
+        <item name="colorSurface">#171329</item>
+        <item name="colorOnSurface">#F6F2FF</item>
+        <item name="android:textColorPrimary">#F6F2FF</item>
+        <item name="android:textColorSecondary">#C9C1E8</item>
+    </style>
+</resources>

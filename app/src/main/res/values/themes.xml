@@ -11,4 +11,13 @@
         <item name="android:colorAccent">@color/blue_primary</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+
+    <style name="PasswordSafeDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="colorPrimary">#6750E8</item>
+        <item name="colorAccent">#6750E8</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="colorOnSurface">#171329</item>
+        <item name="android:textColorPrimary">#171329</item>
+        <item name="android:textColorSecondary">#655F78</item>
+    </style>
 </resources>

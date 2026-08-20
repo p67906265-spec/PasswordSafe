@@ -735,6 +735,8 @@ class MainActivity : AppCompatActivity() {
             addView(menuActionRow("Compilazione automatica   ${if(isAutofillEnabled()) "✓" else ""}","↯"){openAutofillSettings()})
             addView(menuActionRow("App installate",R.drawable.ic_app){showInstalledApps()})
             addView(infoText("Seleziona un'app del telefono e collega account e password. PasswordSafe non legge le password delle altre app: le inserisci tu e poi l'Autofill può proporle nell'app corretta."))
+            addView(menuActionRow("Voci personalizzate Login",R.drawable.ic_login){showLoginCustomFieldsSettings()})
+            addView(infoText("Aggiungi qui i nomi che vuoi usare per l’ultima casella dei Login. Le nuove voci compariranno insieme a Sito / dominio, PIN e Nome."))
             addView(menuActionRow("Passkey Android",R.drawable.ic_passkey){showPasskeyGuide()})
             addView(sectionLabel("TEMA"))
             val darkTheme=getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
@@ -1684,28 +1686,101 @@ class MainActivity : AppCompatActivity() {
         else -> label.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
     }
 
-    private fun showLoginExtraFieldLabelPicker(current:String, onSelected:(String)->Unit) {
-        val options = arrayOf("SITO / DOMINIO", "PIN", "NOME", "ALTRO…")
-        AlertDialog.Builder(this)
-            .setTitle("Nome dell'ultima casella")
-            .setSingleChoiceItems(options, options.indexOfFirst { it.equals(current, true) }.takeIf { it >= 0 } ?: -1) { dialog, which ->
-                if (which < 3) {
-                    onSelected(options[which])
-                    dialog.dismiss()
-                } else {
-                    dialog.dismiss()
-                    val input = darkEditorField("Scrivi il nome della casella", if (current !in options) current else "")
-                    input.layoutParams = LinearLayout.LayoutParams(-1, dp(56)).apply { setMargins(dp(18), dp(4), dp(18), 0) }
-                    AlertDialog.Builder(this)
-                        .setTitle("Etichetta personalizzata")
-                        .setView(input)
-                        .setPositiveButton("OK") { _, _ ->
-                            val custom = input.text.toString().trim().uppercase()
-                            if (custom.isNotBlank()) onSelected(custom)
-                        }
-                        .setNegativeButton("ANNULLA", null)
-                        .show()
+    private fun loginCustomLabels(): List<String> {
+        return getSharedPreferences("passwordsafe_login_fields", MODE_PRIVATE)
+            .getStringSet("custom_labels", emptySet())
+            .orEmpty()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase() }
+            .sortedBy { it.lowercase() }
+    }
+
+    private fun saveLoginCustomLabel(value:String): Boolean {
+        val label = value.trim()
+        if (label.isBlank()) return false
+        val reserved = listOf("SITO / DOMINIO", "PIN", "NOME")
+        if (reserved.any { it.equals(label, true) }) return false
+        val current = loginCustomLabels().toMutableList()
+        if (current.any { it.equals(label, true) }) return false
+        current.add(label)
+        getSharedPreferences("passwordsafe_login_fields", MODE_PRIVATE)
+            .edit().putStringSet("custom_labels", current.toSet()).apply()
+        return true
+    }
+
+    private fun deleteLoginCustomLabel(value:String) {
+        val updated = loginCustomLabels().filterNot { it.equals(value, true) }.toSet()
+        getSharedPreferences("passwordsafe_login_fields", MODE_PRIVATE)
+            .edit().putStringSet("custom_labels", updated).apply()
+    }
+
+    private fun showLoginCustomFieldsSettings() {
+        val body = column().apply {
+            setPadding(0,0,0,dp(50))
+            setBackgroundColor(panelBg())
+            addView(pageHeader("Voci Login personalizzate") { showSettingsMenu() })
+            addView(infoText("Le voci create qui compariranno nella scelta del nome dell’ultima casella dei Login."))
+            addView(menuActionRow("Aggiungi nuova voce", R.drawable.ic_login) { showAddLoginCustomFieldDialog() })
+            val labels = loginCustomLabels()
+            if (labels.isEmpty()) {
+                addView(infoText("Nessuna voce personalizzata. Restano disponibili Sito / dominio, PIN e Nome."))
+            } else {
+                addView(sectionLabel("VOCI CREATE"))
+                labels.forEach { label ->
+                    addView(menuActionRow(label, R.drawable.ic_login) {
+                        themedDialogBuilder()
+                            .setTitle("Elimina voce")
+                            .setMessage("Vuoi eliminare ‘$label’ dall’elenco? Le credenziali già salvate con questa etichetta non vengono modificate.")
+                            .setPositiveButton("ELIMINA") { _, _ ->
+                                deleteLoginCustomLabel(label)
+                                showLoginCustomFieldsSettings()
+                            }
+                            .setNegativeButton("ANNULLA", null)
+                            .show()
+                    })
                 }
+            }
+        }
+        setDarkScreen(body, false)
+    }
+
+    private fun showAddLoginCustomFieldDialog() {
+        val input = darkEditorField("Nome della nuova voce", "")
+        input.layoutParams = LinearLayout.LayoutParams(-1, dp(56)).apply { setMargins(dp(18), dp(8), dp(18), 0) }
+        val dialog = themedDialogBuilder()
+            .setTitle("Nuova voce Login")
+            .setView(input)
+            .setPositiveButton("SALVA", null)
+            .setNegativeButton("ANNULLA", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val value = input.text.toString().trim()
+                when {
+                    value.isBlank() -> toast("Scrivi il nome della voce")
+                    saveLoginCustomLabel(value) -> { dialog.dismiss(); showLoginCustomFieldsSettings() }
+                    else -> toast("Voce già presente o riservata")
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun themedDialogBuilder(): AlertDialog.Builder =
+        AlertDialog.Builder(this, R.style.PasswordSafeDialog)
+
+    private fun showLoginExtraFieldLabelPicker(current:String, onSelected:(String)->Unit) {
+        val base = listOf("SITO / DOMINIO", "PIN", "NOME")
+        val options = (base + loginCustomLabels() + listOf(current).filter { value ->
+            value.isNotBlank() && base.none { it.equals(value, true) } && loginCustomLabels().none { it.equals(value, true) }
+        }).distinctBy { it.lowercase() }
+        val selected = options.indexOfFirst { it.equals(current, true) }
+        themedDialogBuilder()
+            .setTitle("Nome dell'ultima casella")
+            .setSingleChoiceItems(options.toTypedArray(), selected) { dialog, which ->
+                onSelected(options[which])
+                dialog.dismiss()
             }
             .setNegativeButton("ANNULLA", null)
             .show()

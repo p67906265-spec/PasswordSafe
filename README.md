@@ -56,3 +56,9 @@ Questa è una versione iniziale. Gli account cifrati e il backup Google Drive ve
 - In Login l’ultima casella è personalizzabile: Sito / dominio, PIN, Nome oppure etichetta libera.
 - Solo quando l’etichetta è Sito / dominio il valore viene usato per il riconoscimento dominio Autofill.
 - Corretto il nome dell’APK/artifact GitHub Actions alla versione 0.44.
+
+## Novità 0.45
+- Il pannello di scelta dell’ultima casella Login segue il tema chiaro/scuro dell’app.
+- Rimossa la voce “Altro…” dal pannello Login.
+- In Impostazioni è disponibile “Voci personalizzate Login” per creare nuove etichette riutilizzabili.
+- Le voci personalizzate possono essere eliminate dall’elenco senza modificare le credenziali già salvate.
