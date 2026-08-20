@@ -17,12 +17,12 @@ import androidx.activity.OnBackPressedCallback
 import java.util.WeakHashMap
 
 /**
- * PasswordSafe 0.49
+ * PasswordSafe 0.50
  * - Il tasto Indietro di Android usa prima la navigazione interna dell'app.
  * - La Home resta compatta.
- * - Le categorie non mostrano più l'elenco sotto i pulsanti della Home:
- *   ogni categoria viene presentata come pagina dedicata con i soli elementi relativi.
- * - Le righe degli elementi nelle pagine categoria sono più compatte e con testo uniforme.
+ * - Ogni categoria viene presentata come pagina dedicata.
+ * - Le righe degli elementi sono compatte e con testo uniforme.
+ * - Nelle Impostazioni compare la firma "Paolo Free 1.0".
  */
 class PasswordSafeApp : Application() {
 
@@ -40,6 +40,7 @@ class PasswordSafeApp : Application() {
         private val backCallbacks = WeakHashMap<MainActivity, OnBackPressedCallback>()
         private val layoutHooks = WeakHashMap<MainActivity, LayoutHook>()
         private val processedScreens = WeakHashMap<View, Boolean>()
+        private val signedSettingsScreens = WeakHashMap<View, Boolean>()
 
         private val categories = setOf(
             "Account", "PIN", "Login", "Email", "Carte", "Passkey", "App", "Altro / Impostazioni"
@@ -146,6 +147,7 @@ class PasswordSafeApp : Application() {
 
         private fun updateHomeOrCategory(activity: MainActivity) {
             val root = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
+            addSettingsSignature(activity, root)
             val title = findText(root, "La tua cassaforte") ?: return
             if (processedScreens.put(title, true) != null) return
 
@@ -155,6 +157,25 @@ class PasswordSafeApp : Application() {
             } else {
                 compactHome(activity, root, title)
             }
+        }
+
+
+        private fun addSettingsSignature(activity: MainActivity, root: ViewGroup) {
+            val settingsTitle = findText(root, "Impostazioni") ?: return
+            if (signedSettingsScreens.put(settingsTitle, true) != null) return
+
+            val header = settingsTitle.parent as? ViewGroup ?: return
+            val body = header.parent as? LinearLayout ?: return
+            fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
+
+            body.addView(TextView(activity).apply {
+                text = "Paolo Free 1.0"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                gravity = Gravity.CENTER
+                setTextColor(Palette.CYAN)
+                setPadding(dp(16), dp(28), dp(16), dp(26))
+                contentDescription = "Paolo Free 1.0"
+            }, LinearLayout.LayoutParams(-1, -2))
         }
 
         /**
