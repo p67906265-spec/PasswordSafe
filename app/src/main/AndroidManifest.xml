@@ -9,6 +9,7 @@
         </intent>
     </queries>
     <application
+        android:name=".PasswordSafeApp"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:icon="@drawable/ic_safe"
