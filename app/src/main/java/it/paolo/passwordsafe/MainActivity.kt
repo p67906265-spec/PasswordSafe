@@ -1177,8 +1177,8 @@ class MainActivity : AppCompatActivity() {
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(24), dp(24), dp(24))
-            background = rounded(panelColor, 26, borderColor, 2)
+            setPadding(dp(17), dp(17), dp(17), dp(17))
+            background = rounded(panelColor, 22, borderColor, 2)
         }
 
         content.addView(LinearLayout(this).apply {
@@ -1186,18 +1186,19 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             addView(TextView(this@MainActivity).apply {
                 text = "ϟ"
-                textSize = 30f
+                textSize = 24f
                 gravity = Gravity.CENTER
                 setTextColor(cyan)
-            }, LinearLayout.LayoutParams(dp(42), dp(46)).apply { setMargins(0,0,dp(8),0) })
+            }, LinearLayout.LayoutParams(dp(34), dp(38)).apply { setMargins(0,0,dp(6),0) })
             addView(TextView(this@MainActivity).apply {
                 text = "GENERA PASSWORD"
-                textSize = 22f
+                textSize = 18f
+                maxLines = 1
                 setTextColor(textMain)
                 setTypeface(typeface, 1)
-                letterSpacing = 0.04f
+                letterSpacing = 0.02f
                 gravity = Gravity.CENTER_VERTICAL
-            }, LinearLayout.LayoutParams(0, dp(46), 1f))
+            }, LinearLayout.LayoutParams(0, dp(38), 1f))
         })
 
         fun optionRow(label:String): Pair<LinearLayout,CheckBox> {
@@ -1207,21 +1208,21 @@ class MainActivity : AppCompatActivity() {
                     arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
                     intArrayOf(cyan, Color.rgb(193, 184, 231))
                 )
-                scaleX = 1.18f
-                scaleY = 1.18f
+                scaleX = 0.98f
+                scaleY = 0.92f
             }
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(14), 0, dp(16), 0)
-                background = rounded(rowColor, 15, borderColor, 1)
-                addView(check, LinearLayout.LayoutParams(dp(52), dp(72)))
+                setPadding(dp(10), 0, dp(12), 0)
+                background = rounded(rowColor, 13, borderColor, 1)
+                addView(check, LinearLayout.LayoutParams(dp(44), dp(54)))
                 addView(TextView(this@MainActivity).apply {
                     text = label
-                    textSize = 19f
+                    textSize = 16f
                     setTextColor(textSoft)
                     gravity = Gravity.CENTER_VERTICAL
-                }, LinearLayout.LayoutParams(0, dp(72), 1f))
+                }, LinearLayout.LayoutParams(0, dp(54), 1f))
                 setOnClickListener { check.isChecked = !check.isChecked }
             }
             return row to check
@@ -1231,8 +1232,8 @@ class MainActivity : AppCompatActivity() {
         val numbersPair = optionRow("Numeri")
         val symbolsPair = optionRow("Caratteri speciali")
         listOf(lettersPair.first, numbersPair.first, symbolsPair.first).forEachIndexed { index, row ->
-            content.addView(row, LinearLayout.LayoutParams(-1, dp(72)).apply {
-                setMargins(0, if(index==0) dp(18) else dp(10), 0, 0)
+            content.addView(row, LinearLayout.LayoutParams(-1, dp(54)).apply {
+                setMargins(0, if(index==0) dp(13) else dp(8), 0, 0)
             })
         }
         val letters = lettersPair.second
@@ -1241,26 +1242,26 @@ class MainActivity : AppCompatActivity() {
 
         val lengthLabel = TextView(this).apply {
             text = "LUNGHEZZA: 16"
-            textSize = 15f
+            textSize = 13f
             letterSpacing = 0.06f
             gravity = Gravity.CENTER
             setTypeface(typeface, 1)
             setTextColor(cyan)
-            background = rounded(Color.TRANSPARENT, 22, cyan, 1)
+            background = rounded(Color.TRANSPARENT, 18, cyan, 1)
         }
-        content.addView(lengthLabel, LinearLayout.LayoutParams(dp(170), dp(42)).apply {
+        content.addView(lengthLabel, LinearLayout.LayoutParams(dp(150), dp(36)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            setMargins(0, dp(22), 0, dp(10))
+            setMargins(0, dp(16), 0, dp(7))
         })
 
         val seek = SeekBar(this).apply {
             max = 24
             progress = 8
-            minHeight = dp(54)
+            minHeight = dp(42)
             progressTintList = android.content.res.ColorStateList.valueOf(cyan)
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(119, 98, 255))
             thumbTintList = android.content.res.ColorStateList.valueOf(yellow)
-            scaleY = 1.18f
+            scaleY = 0.92f
             setPadding(0, dp(4), 0, dp(4))
         }
         seek.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
@@ -1270,38 +1271,38 @@ class MainActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(s:SeekBar?) {}
             override fun onStopTrackingTouch(s:SeekBar?) {}
         })
-        content.addView(seek, LinearLayout.LayoutParams(-1, dp(58)))
+        content.addView(seek, LinearLayout.LayoutParams(-1, dp(44)))
 
         val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(24), 0, 0)
+            setPadding(0, dp(17), 0, 0)
         }
         val cancel = TextView(this).apply {
             text = "ANNULLA"
-            textSize = 17f
+            textSize = 15f
             gravity = Gravity.CENTER
             setTypeface(typeface, 1)
             setTextColor(Color.rgb(216, 208, 244))
-            background = rounded(Color.TRANSPARENT, 18, Color.rgb(216, 208, 244), 1)
+            background = rounded(Color.TRANSPARENT, 16, Color.rgb(216, 208, 244), 1)
         }
         val generate = TextView(this).apply {
             text = "GENERA"
-            textSize = 17f
+            textSize = 15f
             gravity = Gravity.CENTER
             setTypeface(typeface, 1)
             setTextColor(Color.rgb(22, 16, 52))
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(yellow, cyan)
-            ).apply { cornerRadius = dp(18).toFloat() }
+            ).apply { cornerRadius = dp(16).toFloat() }
         }
-        buttons.addView(cancel, LinearLayout.LayoutParams(0, dp(58), 1f).apply { setMargins(0,0,dp(8),0) })
-        buttons.addView(generate, LinearLayout.LayoutParams(0, dp(58), 1f).apply { setMargins(dp(8),0,0,0) })
+        buttons.addView(cancel, LinearLayout.LayoutParams(0, dp(48), 1f).apply { setMargins(0,0,dp(7),0) })
+        buttons.addView(generate, LinearLayout.LayoutParams(0, dp(48), 1f).apply { setMargins(dp(7),0,0,0) })
         content.addView(buttons)
 
         val wrapper = FrameLayout(this).apply {
-            setPadding(dp(16), dp(16), dp(16), dp(16))
+            setPadding(dp(12), dp(12), dp(12), dp(12))
             addView(content, FrameLayout.LayoutParams(-1, -2))
         }
         val dialog = AlertDialog.Builder(this).setView(wrapper).create()
@@ -1319,11 +1320,11 @@ class MainActivity : AppCompatActivity() {
             dialog.window?.apply {
                 setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
                 setDimAmount(0.70f)
-                attributes = attributes.apply { width = (resources.displayMetrics.widthPixels * 0.94f).toInt() }
+                attributes = attributes.apply { width = (resources.displayMetrics.widthPixels * 0.86f).toInt() }
             }
         }
         dialog.show()
-        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.94f).toInt(), android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.86f).toInt(), android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun checkCompromisedPassword(password:String,onResult:(Int?)->Unit) {
