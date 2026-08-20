@@ -17,11 +17,12 @@ import androidx.activity.OnBackPressedCallback
 import java.util.WeakHashMap
 
 /**
- * PasswordSafe 0.48
+ * PasswordSafe 0.49
  * - Il tasto Indietro di Android usa prima la navigazione interna dell'app.
  * - La Home resta compatta.
  * - Le categorie non mostrano più l'elenco sotto i pulsanti della Home:
  *   ogni categoria viene presentata come pagina dedicata con i soli elementi relativi.
+ * - Le righe degli elementi nelle pagine categoria sono più compatte e con testo uniforme.
  */
 class PasswordSafeApp : Application() {
 
@@ -247,6 +248,60 @@ class PasswordSafeApp : Application() {
             internalSection?.let {
                 it.textSize = 10f
                 it.setPadding(dp(6), dp(2), dp(6), dp(7))
+            }
+
+            // 0.49: righe più compatte e caratteri uniformi in tutte le categorie.
+            compactCategoryRows(activity, body)
+        }
+
+        private fun compactCategoryRows(activity: MainActivity, root: ViewGroup) {
+            fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
+            fun sp(view: TextView, value: Float) {
+                view.setTextSize(TypedValue.COMPLEX_UNIT_SP, value)
+            }
+
+            traverse(root) { view ->
+                val row = view as? LinearLayout ?: return@traverse
+                if (row.orientation != LinearLayout.HORIZONTAL || row.childCount != 3) return@traverse
+
+                val logoWrap = row.getChildAt(0) as? FrameLayout ?: return@traverse
+                val title = row.getChildAt(1) as? TextView ?: return@traverse
+                val arrow = row.getChildAt(2) as? TextView ?: return@traverse
+                if (arrow.text.toString().trim() != "›") return@traverse
+
+                val currentHeight = row.layoutParams?.height ?: return@traverse
+                if (currentHeight < dp(86)) return@traverse
+
+                (row.layoutParams as? LinearLayout.LayoutParams)?.let { lp ->
+                    lp.height = dp(72)
+                    lp.setMargins(lp.leftMargin, dp(4), lp.rightMargin, dp(4))
+                    row.layoutParams = lp
+                }
+                row.setPadding(dp(10), dp(8), dp(10), dp(8))
+                (row.background as? GradientDrawable)?.cornerRadius = dp(18).toFloat()
+
+                (logoWrap.layoutParams as? LinearLayout.LayoutParams)?.let { lp ->
+                    lp.width = dp(46)
+                    lp.height = dp(46)
+                    lp.setMargins(lp.leftMargin, lp.topMargin, dp(12), lp.bottomMargin)
+                    logoWrap.layoutParams = lp
+                }
+                (logoWrap.background as? GradientDrawable)?.cornerRadius = dp(14).toFloat()
+
+                for (i in 0 until logoWrap.childCount) {
+                    when (val child = logoWrap.getChildAt(i)) {
+                        is TextView -> sp(child, 18f)
+                        is android.widget.ImageView -> child.setPadding(dp(6), dp(6), dp(6), dp(6))
+                    }
+                }
+
+                sp(title, 15f)
+                title.maxLines = 1
+                sp(arrow, 23f)
+                (arrow.layoutParams as? LinearLayout.LayoutParams)?.let { lp ->
+                    lp.width = dp(20)
+                    arrow.layoutParams = lp
+                }
             }
         }
 
