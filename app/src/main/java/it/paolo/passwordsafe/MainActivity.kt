@@ -472,7 +472,11 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(if (isDarkTheme()) Color.rgb(130, 120, 190) else Color.rgb(110, 100, 150))
                 setPadding(dp(6), 0, dp(6), dp(10))
             })
-            val shown = items.filter { it.type == vaultTypeFilter }.sortedBy { it.title.lowercase() }
+            // Le credenziali collegate a un'app restano internamente LOGIN/ACCOUNT/EMAIL
+            // per l'Autofill, ma nella Home devono comparire esclusivamente nella sezione App.
+            val shown = items.filter {
+                it.type == vaultTypeFilter && it.appPackage.isBlank()
+            }.sortedBy { it.title.lowercase() }
             if (shown.isEmpty()) list.addView(infoText("Nessun elemento trovato.")) else shown.forEach { list.addView(itemListRow(it)) }
         }
         refresh()
@@ -544,7 +548,11 @@ class MainActivity : AppCompatActivity() {
     private fun renderVault(filter: String) {
         window.statusBarColor = appBg()
         val body = column().apply { setPadding(0,0,0,dp(110));setBackgroundColor(panelBg());addView(darkHeader(when(vaultTypeFilter){"ACCOUNT"->"Account";"PIN"->"PIN";"LOGIN"->"Login";"CARD"->"Carte";"PASSKEY"->"Passkey";else->"Email"},true),LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,0)}) }
-        val filtered=items.filter{it.type==vaultTypeFilter&&(filter.isBlank()||it.title.contains(filter,true)||it.username.contains(filter,true))}
+        val filtered=items.filter{
+            it.type==vaultTypeFilter &&
+            it.appPackage.isBlank() &&
+            (filter.isBlank()||it.title.contains(filter,true)||it.username.contains(filter,true))
+        }
         if(vaultTypeFilter!="NONE" && filtered.isEmpty())body.addView(TextView(this).apply{text="Nessun elemento in questa categoria";gravity=Gravity.CENTER;textSize=17f;setTextColor(Color.DKGRAY);setPadding(20,60,20,60)})
         filtered.sortedBy{it.title.lowercase()}.forEach{body.addView(itemListRow(it))}
         setDarkScreen(body, true)
