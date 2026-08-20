@@ -64,6 +64,12 @@ class MainActivity : AppCompatActivity() {
     private var pendingCardPhotoUri: Uri? = null
     private var pendingCardPhotoPath: String? = null
 
+    private data class InstalledAppInfo(
+        val label: String,
+        val packageName: String,
+        val icon: android.graphics.drawable.Drawable?
+    )
+
     private val scanCardPhoto = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         val uri = pendingCardPhotoUri
         if (!success || uri == null) {
@@ -580,6 +586,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadServiceLogo(item: VaultItem, image: ImageView, fallback: TextView) {
         if (item.type == "PIN" || item.type == "CARD") return
+        if(item.appPackage.isNotBlank()) {
+            val appIcon = runCatching { packageManager.getApplicationIcon(item.appPackage) }.getOrNull()
+            if(appIcon != null) {
+                image.setImageDrawable(appIcon)
+                image.visibility=View.VISIBLE
+                fallback.visibility=View.GONE
+                return
+            }
+        }
         val domain = serviceDomain(item) ?: return
         val cacheFile = cacheDir.resolve("brand_${domain.hashCode().toUInt()}.png")
         if (cacheFile.exists()) {
@@ -667,7 +682,8 @@ class MainActivity : AppCompatActivity() {
             addView(toggleMenuRow("Accesso con impronta","◎",security.biometricEnabled){security.biometricEnabled=it})
             addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
             addView(menuActionRow("Compilazione automatica   ${if(isAutofillEnabled()) "✓" else ""}","↯"){openAutofillSettings()})
-            addView(infoText("Per usare la compilazione automatica, attiva PasswordSafe come servizio Android. Per sicurezza la cassaforte deve essere già sbloccata."))
+            addView(menuActionRow("App installate","📱"){showInstalledApps()})
+            addView(infoText("Seleziona un'app del telefono e collega account e password. PasswordSafe non legge le password delle altre app: le inserisci tu e poi l'Autofill può proporle nell'app corretta."))
             addView(menuActionRow("Passkey Android","🔑"){showPasskeyGuide()})
             addView(sectionLabel("TEMA"))
             val darkTheme=getSharedPreferences("passwordsafe_ui", MODE_PRIVATE).getBoolean("dark_theme", true)
@@ -707,9 +723,128 @@ class MainActivity : AppCompatActivity() {
         recreate()
     }
 
+    private fun installedApps(): List<InstalledAppInfo> {
+        val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return packageManager.queryIntentActivities(launchIntent, 0)
+            .mapNotNull { resolveInfo ->
+                val activity = resolveInfo.activityInfo ?: return@mapNotNull null
+                val pkg = activity.packageName ?: return@mapNotNull null
+                if (pkg == packageName) return@mapNotNull null
+                val label = runCatching { resolveInfo.loadLabel(packageManager).toString().trim() }
+                    .getOrDefault(pkg)
+                    .ifBlank { pkg }
+                val icon = runCatching { resolveInfo.loadIcon(packageManager) }.getOrNull()
+                InstalledAppInfo(label, pkg, icon)
+            }
+            .distinctBy { it.packageName }
+            .sortedBy { it.label.lowercase() }
+    }
+
+    private fun showInstalledApps(filter: String = "ALL") {
+        val allApps = installedApps()
+        val savedPackages = items.mapNotNull { item -> item.appPackage.takeIf { it.isNotBlank() } }.toSet()
+        val shown = when (filter) {
+            "SAVED" -> allApps.filter { it.packageName in savedPackages }
+            "NEW" -> allApps.filter { it.packageName !in savedPackages }
+            else -> allApps
+        }
+
+        val body = column().apply {
+            setPadding(0,0,0,dp(70))
+            setBackgroundColor(panelBg())
+            addView(pageHeader("App installate"){showSettingsMenu()})
+            addView(infoText("Tocca un'app per creare una credenziale collegata. Sono mostrate le app avviabili del telefono; Android non permette a PasswordSafe di leggere le password già presenti nelle altre app."))
+        }
+
+        val filters = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(16),0,dp(16),dp(10))
+        }
+        fun addFilter(label:String, value:String) {
+            filters.addView(MaterialButton(this).apply {
+                text=label
+                textSize=11f
+                isAllCaps=false
+                cornerRadius=dp(18)
+                setTextColor(if(filter==value) Color.WHITE else primaryText())
+                setBackgroundColor(if(filter==value) Color.rgb(105,87,238) else chipBg())
+                setOnClickListener { showInstalledApps(value) }
+            }, LinearLayout.LayoutParams(0,dp(42),1f).apply { setMargins(dp(3),0,dp(3),0) })
+        }
+        addFilter("Tutte","ALL")
+        addFilter("Salvate","SAVED")
+        addFilter("Non salvate","NEW")
+        body.addView(filters)
+
+        if (shown.isEmpty()) {
+            body.addView(infoText("Nessuna app in questa sezione."))
+        } else {
+            shown.forEach { app ->
+                val existing = items.filter { it.appPackage == app.packageName && it.type in setOf("ACCOUNT","LOGIN","EMAIL") }
+                body.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(16),dp(10),dp(14),dp(10))
+                    background = GradientDrawable().apply {
+                        setColor(cardBg())
+                        cornerRadius = dp(18).toFloat()
+                        setStroke(dp(1), if(isDarkTheme()) Color.rgb(69,57,133) else Color.rgb(226,221,239))
+                    }
+                    layoutParams = LinearLayout.LayoutParams(-1,dp(74)).apply { setMargins(dp(16),dp(5),dp(16),dp(5)) }
+                    addView(ImageView(this@MainActivity).apply {
+                        setImageDrawable(app.icon)
+                        scaleType=ImageView.ScaleType.CENTER_INSIDE
+                    }, LinearLayout.LayoutParams(dp(46),dp(46)).apply { setMargins(0,0,dp(14),0) })
+                    addView(LinearLayout(this@MainActivity).apply {
+                        orientation=LinearLayout.VERTICAL
+                        gravity=Gravity.CENTER_VERTICAL
+                        addView(TextView(this@MainActivity).apply {
+                            text=app.label
+                            textSize=16f
+                            setTypeface(typeface,1)
+                            setTextColor(primaryText())
+                            maxLines=1
+                        })
+                        if(existing.isNotEmpty()) addView(TextView(this@MainActivity).apply {
+                            text=if(existing.size==1) "Credenziale salvata" else "${existing.size} credenziali salvate"
+                            textSize=11f
+                            setTextColor(Color.rgb(238,199,62))
+                            setPadding(0,dp(2),0,0)
+                        })
+                    }, LinearLayout.LayoutParams(0,-1,1f))
+                    addView(TextView(this@MainActivity).apply {
+                        text=if(existing.isEmpty()) "+" else "✓"
+                        textSize=24f
+                        gravity=Gravity.CENTER
+                        setTextColor(if(existing.isEmpty()) Color.rgb(92,210,224) else Color.rgb(238,199,62))
+                    }, LinearLayout.LayoutParams(dp(36),-1))
+                    setOnClickListener {
+                        if(existing.isEmpty()) {
+                            showItemDialog(null,"LOGIN",app.label,app.packageName)
+                        } else {
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle(app.label)
+                                .setItems(arrayOf("Apri credenziale salvata","Aggiungi un altro account")) { _, which ->
+                                    if(which==0) showItemDialog(existing.first())
+                                    else showItemDialog(null,"LOGIN",app.label,app.packageName)
+                                }
+                                .setNegativeButton("Annulla",null)
+                                .show()
+                        }
+                    }
+                })
+            }
+        }
+        setDarkScreen(body,false)
+    }
+
     private fun showCreateTypeMenu() {
-        val labels = arrayOf("👤  Account", "🔢  PIN", "🌐  Login", "✉  Email", "💳  Carta", "🔑  Passkey")
+        val labels = arrayOf("👤  Account", "🔢  PIN", "🌐  Login", "✉  Email", "💳  Carta", "🔑  Passkey", "📱  Da app installata")
         AlertDialog.Builder(this).setTitle("Cosa vuoi creare?").setItems(labels) { _, which ->
+            if(which==6) {
+                showInstalledApps("NEW")
+                return@setItems
+            }
             val type = when (which) {
                 0 -> "ACCOUNT"
                 1 -> "PIN"
@@ -722,7 +857,7 @@ class MainActivity : AppCompatActivity() {
         }.setNegativeButton("Annulla",null).show()
     }
 
-    private fun showItemDialog(existing: VaultItem?, requestedType: String? = null) {
+    private fun showItemDialog(existing: VaultItem?, requestedType: String? = null, prefillTitle: String? = null, prefillPackage: String? = null) {
         val itemType = existing?.type ?: requestedType ?: "LOGIN"
         val typeLabel = when (itemType) {
             "PIN" -> "PIN"
@@ -865,7 +1000,7 @@ class MainActivity : AppCompatActivity() {
                 "ACCOUNT" -> "Nome account"
                 else -> "Nome del sito"
             },
-            existing?.title ?: ""
+            existing?.title ?: prefillTitle.orEmpty()
         )
         val userF = darkEditorField(
             if (itemType == "ACCOUNT" || itemType == "EMAIL") "Email" else "Nome utente / email",
@@ -882,6 +1017,10 @@ class MainActivity : AppCompatActivity() {
         addEditorField(fields, if (itemType == "PIN") "PIN" else "PASSWORD", passF)
         if (itemType == "ACCOUNT" || itemType == "LOGIN" || itemType == "EMAIL") {
             addEditorField(fields, "SITO / DOMINIO PER AUTOFILL", urlF)
+            val linkedPackage = existing?.appPackage?.takeIf { it.isNotBlank() } ?: prefillPackage.orEmpty()
+            if(linkedPackage.isNotBlank()) {
+                fields.addView(infoText("App collegata: ${prefillTitle ?: existing?.title ?: linkedPackage}. L'Autofill userà il collegamento all'app anche senza compilare il dominio."))
+            }
         }
 
         if (itemType == "PIN") {
@@ -941,7 +1080,8 @@ class MainActivity : AppCompatActivity() {
                     password = passF.text.toString(),
                     url = if (itemType == "PIN") "" else urlF.text.toString(),
                     category = typeLabel,
-                    type = itemType
+                    type = itemType,
+                    appPackage = if(itemType=="PIN") "" else prefillPackage.orEmpty()
                 ))
             } else {
                 existing.title = savedTitle
@@ -950,6 +1090,7 @@ class MainActivity : AppCompatActivity() {
                 if (itemType != "PIN") existing.url = urlF.text.toString()
                 existing.category = typeLabel
                 existing.type = itemType
+                if(!prefillPackage.isNullOrBlank()) existing.appPackage = prefillPackage
             }
             vault.save(items)
             vaultTypeFilter = itemType

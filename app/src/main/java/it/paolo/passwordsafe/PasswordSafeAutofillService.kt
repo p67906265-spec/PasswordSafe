@@ -124,9 +124,13 @@ class PasswordSafeAutofillService : AutofillService() {
 
     private fun matchesTarget(item: VaultItem, target: String): Boolean {
         if (target.isBlank()) return false
+        val normalizedTarget = target.lowercase().trim()
+        val appPackage = item.appPackage.lowercase().trim()
+        if (appPackage.isNotBlank() && normalizedTarget == appPackage) return true
+
         val title = item.title.lowercase().replace(" ", "")
         val domain = normalizeDomain(item.url)
-        val compactTarget = target.replace(" ", "")
+        val compactTarget = normalizedTarget.replace(" ", "")
         return (domain.isNotBlank() && (compactTarget.contains(domain) || domain.contains(compactTarget))) ||
             (title.length >= 3 && compactTarget.contains(title))
     }
