@@ -2,8 +2,11 @@ package it.paolo.passwordsafe
 
 import android.app.Activity
 import android.app.Application
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
@@ -14,9 +17,11 @@ import androidx.activity.OnBackPressedCallback
 import java.util.WeakHashMap
 
 /**
- * PasswordSafe 0.47
+ * PasswordSafe 0.48
  * - Il tasto Indietro di Android usa prima la navigazione interna dell'app.
- * - La Home viene resa leggermente più compatta senza modificare i dati salvati.
+ * - La Home resta compatta.
+ * - Le categorie non mostrano più l'elenco sotto i pulsanti della Home:
+ *   ogni categoria viene presentata come pagina dedicata con i soli elementi relativi.
  */
 class PasswordSafeApp : Application() {
 
@@ -33,7 +38,11 @@ class PasswordSafeApp : Application() {
 
         private val backCallbacks = WeakHashMap<MainActivity, OnBackPressedCallback>()
         private val layoutHooks = WeakHashMap<MainActivity, LayoutHook>()
-        private val compactedHomes = WeakHashMap<View, Boolean>()
+        private val processedScreens = WeakHashMap<View, Boolean>()
+
+        private val categories = setOf(
+            "Account", "PIN", "Login", "Email", "Carte", "Passkey", "App", "Altro / Impostazioni"
+        )
 
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
             val main = activity as? MainActivity ?: return
@@ -50,8 +59,8 @@ class PasswordSafeApp : Application() {
 
         override fun onActivityResumed(activity: Activity) {
             val main = activity as? MainActivity ?: return
-            installHomeCompaction(main)
-            compactHomeIfVisible(main)
+            installUiHook(main)
+            updateHomeOrCategory(main)
         }
 
         override fun onActivityDestroyed(activity: Activity) {
@@ -69,11 +78,11 @@ class PasswordSafeApp : Application() {
         override fun onActivityStopped(activity: Activity) = Unit
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
 
-        private fun installHomeCompaction(activity: MainActivity) {
+        private fun installUiHook(activity: MainActivity) {
             if (layoutHooks.containsKey(activity)) return
             val root = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
             val listener = ViewTreeObserver.OnGlobalLayoutListener {
-                compactHomeIfVisible(activity)
+                updateHomeOrCategory(activity)
             }
             root.viewTreeObserver.addOnGlobalLayoutListener(listener)
             layoutHooks[activity] = LayoutHook(root, listener)
@@ -82,7 +91,7 @@ class PasswordSafeApp : Application() {
         private fun handleInternalBack(activity: MainActivity) {
             val root = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
 
-            // Le pagine interne hanno già la freccia ‹ con la destinazione corretta.
+            // Le pagine interne (compresa la nuova pagina categoria) hanno la freccia ‹.
             findFirst(root) { view ->
                 view is TextView &&
                     view.isShown &&
@@ -93,7 +102,7 @@ class PasswordSafeApp : Application() {
                 return
             }
 
-            // Alcune vecchie schermate usano un pulsante testuale invece della freccia.
+            // Alcune schermate storiche usano un pulsante testuale invece della freccia.
             val backLabels = setOf("INDIETRO", "TORNA INDIETRO", "ANNULLA", "ESCI")
             findFirst(root) { view ->
                 view is TextView &&
@@ -105,7 +114,7 @@ class PasswordSafeApp : Application() {
                 return
             }
 
-            // Nella Home, se è aperta una categoria, Indietro torna alla Home neutra.
+            // Nella Home non chiudere l'app con un tocco involontario su Indietro.
             if (containsText(root, "La tua cassaforte")) {
                 resetHomeFilter(activity)
                 return
@@ -113,6 +122,12 @@ class PasswordSafeApp : Application() {
 
             // Login/setup: non chiudere l'app con un tocco involontario su Indietro.
         }
+
+        private fun currentHomeFilter(activity: MainActivity): String = runCatching {
+            MainActivity::class.java.getDeclaredField("vaultTypeFilter").apply {
+                isAccessible = true
+            }.get(activity) as? String ?: "NONE"
+        }.getOrDefault("NONE")
 
         private fun resetHomeFilter(activity: MainActivity): Boolean = runCatching {
             val filterField = MainActivity::class.java.getDeclaredField("vaultTypeFilter").apply {
@@ -128,11 +143,114 @@ class PasswordSafeApp : Application() {
             true
         }.getOrDefault(false)
 
-        private fun compactHomeIfVisible(activity: MainActivity) {
+        private fun updateHomeOrCategory(activity: MainActivity) {
             val root = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
             val title = findText(root, "La tua cassaforte") ?: return
-            if (compactedHomes.put(title, true) != null) return
+            if (processedScreens.put(title, true) != null) return
 
+            val filter = currentHomeFilter(activity)
+            if (filter != "NONE") {
+                transformFilteredHomeIntoCategoryPage(activity, root, title, filter)
+            } else {
+                compactHome(activity, root, title)
+            }
+        }
+
+        /**
+         * MainActivity continua a costruire i dati con la logica già collaudata.
+         * Quando una categoria è selezionata, qui nascondiamo completamente la parte Home
+         * (titolo, pannello sicurezza e griglia categorie) e lasciamo a schermo solo
+         * l'elenco filtrato, preceduto da un header dedicato con Indietro.
+         */
+        private fun transformFilteredHomeIntoCategoryPage(
+            activity: MainActivity,
+            root: ViewGroup,
+            title: TextView,
+            filter: String
+        ) {
+            fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
+
+            val body = title.parent as? LinearLayout ?: return
+            body.setPadding(dp(16), dp(8), dp(16), dp(96))
+
+            // Nasconde titolo e contatore generali della Home.
+            title.visibility = View.GONE
+            val titleIndex = body.indexOfChild(title)
+            if (titleIndex >= 0 && titleIndex + 1 < body.childCount) {
+                val maybeSavedCount = body.getChildAt(titleIndex + 1) as? TextView
+                if (maybeSavedCount?.text?.toString()?.contains("elementi salvati") == true) {
+                    maybeSavedCount.visibility = View.GONE
+                }
+            }
+
+            // Nasconde il pannello "La tua cassaforte è protetta".
+            findText(root, "La tua cassaforte è protetta")?.let { protectionTitle ->
+                findAncestorWithMinHeight(protectionTitle, dp(110))?.visibility = View.GONE
+            }
+
+            // Nasconde tutte le righe con i pulsanti delle categorie.
+            for (i in 0 until body.childCount) {
+                val child = body.getChildAt(i)
+                if (containsCategoryButton(child)) child.visibility = View.GONE
+            }
+
+            // Titolo pulito della pagina selezionata.
+            val label = when (filter) {
+                "ACCOUNT" -> "Account"
+                "PIN" -> "PIN"
+                "LOGIN" -> "Login"
+                "EMAIL" -> "Email"
+                "CARD" -> "Carte"
+                "PASSKEY" -> "Passkey"
+                "APP" -> "App"
+                else -> "Categoria"
+            }
+
+            val header = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(4), 0, dp(8))
+
+                addView(TextView(activity).apply {
+                    text = "‹"
+                    textSize = 38f
+                    gravity = Gravity.CENTER
+                    setTextColor(primaryText(activity))
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = "Torna alla Home"
+                    setOnClickListener { resetHomeFilter(activity) }
+                }, LinearLayout.LayoutParams(dp(48), dp(52)))
+
+                addView(TextView(activity).apply {
+                    text = label
+                    textSize = 24f
+                    setTypeface(typeface, 1)
+                    setTextColor(primaryText(activity))
+                    gravity = Gravity.CENTER_VERTICAL
+                }, LinearLayout.LayoutParams(0, dp(52), 1f))
+            }
+
+            body.addView(header, 0, LinearLayout.LayoutParams(-1, dp(64)))
+
+            // Rende l'intestazione interna dell'elenco più discreta: il titolo vero è già sopra.
+            val internalSection = findText(root, when (filter) {
+                "ACCOUNT" -> "ACCOUNT"
+                "PIN" -> "PIN"
+                "LOGIN" -> "LOGIN"
+                "EMAIL" -> "EMAIL"
+                "CARD" -> "CARTE"
+                "PASSKEY" -> "PASSKEY"
+                "APP" -> "APP"
+                else -> ""
+            })
+            internalSection?.let {
+                it.textSize = 10f
+                it.setPadding(dp(6), dp(2), dp(6), dp(7))
+            }
+        }
+
+        private fun compactHome(activity: MainActivity, root: ViewGroup, title: TextView) {
             fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
             fun sp(view: TextView, value: Float) {
                 view.setTextSize(TypedValue.COMPLEX_UNIT_SP, value)
@@ -153,7 +271,7 @@ class PasswordSafeApp : Application() {
                 }
             }
 
-            // Pannello protezione: da 138dp a circa 122dp.
+            // Pannello protezione: più compatto della 0.46.
             findText(root, "La tua cassaforte è protetta")?.let { protectionTitle ->
                 val summary = findAncestorWithMinHeight(protectionTitle, dp(125))
                 if (summary is LinearLayout) {
@@ -174,10 +292,7 @@ class PasswordSafeApp : Application() {
                 }
             }
 
-            // Tutte le 8 card principali della Home diventano un po' più basse.
-            val categories = setOf(
-                "Account", "PIN", "Login", "Email", "Carte", "Passkey", "App", "Altro / Impostazioni"
-            )
+            // Tutte le 8 card principali della Home restano compatte.
             traverse(root) { view ->
                 val card = view as? LinearLayout ?: return@traverse
                 if (card.orientation != LinearLayout.HORIZONTAL) return@traverse
@@ -218,10 +333,26 @@ class PasswordSafeApp : Application() {
                 }
             }
 
-            // Anche il riquadro informativo sotto le categorie resta coerente e più compatto.
+            // Il riquadro informativo della Home resta compatto.
             findText(root, "Seleziona una categoria per visualizzare gli elementi.")?.let { info ->
                 (info.parent as? LinearLayout)?.setPadding(dp(12), dp(8), dp(12), dp(8))
             }
+        }
+
+        private fun primaryText(activity: MainActivity): Int {
+            val dark = activity.getSharedPreferences("passwordsafe_ui", Activity.MODE_PRIVATE)
+                .getBoolean("dark_theme", true)
+            return if (dark) Palette.TEXT else Color.rgb(7, 24, 39)
+        }
+
+        private fun containsCategoryButton(root: View): Boolean {
+            if (root.contentDescription?.toString() in categories) return true
+            if (root is ViewGroup) {
+                for (i in 0 until root.childCount) {
+                    if (containsCategoryButton(root.getChildAt(i))) return true
+                }
+            }
+            return false
         }
 
         private fun findAncestorWithMinHeight(view: View, minHeight: Int): ViewGroup? {
