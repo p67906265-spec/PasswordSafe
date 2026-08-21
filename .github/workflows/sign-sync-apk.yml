@@ -38,14 +38,14 @@ jobs:
           test -x "$BUILD_TOOLS_DIR/apksigner"
           echo "dir=$BUILD_TOOLS_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Verifica compatibilità aggiornamento
+      - name: Verifica APK Sync
         shell: bash
         run: |
           set -euo pipefail
           AAPT="${{ steps.tools.outputs.dir }}/aapt"
           BADGING="$($AAPT dump badging PasswordSafe-Sync-Android.apk | head -n 1)"
           echo "$BADGING"
-          PACKAGE="$(echo "$BADGING" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
+          PACKAGE="$(echo "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
           VERSION_CODE="$(echo "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
           VERSION_NAME="$(echo "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
           test "$PACKAGE" = "it.paolo.passwordsafe" || { echo "ERRORE: package $PACKAGE diverso da it.paolo.passwordsafe"; exit 1; }
@@ -54,7 +54,7 @@ jobs:
             echo "ERRORE: versionCode $VERSION_CODE inferiore alla versione installata (50)."
             exit 1
           fi
-          echo "Compatibile: package=$PACKAGE versionCode=$VERSION_CODE versionName=$VERSION_NAME"
+          echo "APK Sync compatibile: package=$PACKAGE versionCode=$VERSION_CODE versionName=$VERSION_NAME"
 
       - name: Prepara firma permanente
         shell: bash
@@ -66,7 +66,7 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
 
-      - name: Allinea e firma APK
+      - name: Allinea e firma APK Sync
         shell: bash
         run: |
           set -euo pipefail
@@ -77,7 +77,7 @@ jobs:
             --ks-key-alias "$ANDROID_KEY_ALIAS" \
             --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
             --key-pass "pass:$ANDROID_KEY_PASSWORD" \
-            --out PasswordSafe-Sync-signed.apk \
+            --out PasswordSafe-Sync-firmata.apk \
             PasswordSafe-Sync-aligned.apk
 
       - name: Verifica firma finale
@@ -85,12 +85,12 @@ jobs:
         run: |
           set -euo pipefail
           TOOLS="${{ steps.tools.outputs.dir }}"
-          "$TOOLS/apksigner" verify --verbose --print-certs PasswordSafe-Sync-signed.apk
-          "$TOOLS/aapt" dump badging PasswordSafe-Sync-signed.apk | head -n 1
+          "$TOOLS/apksigner" verify --verbose --print-certs PasswordSafe-Sync-firmata.apk
+          "$TOOLS/aapt" dump badging PasswordSafe-Sync-firmata.apk | head -n 1
 
-      - name: Pubblica APK firmata
+      - name: Pubblica PasswordSafe Sync firmata
         uses: actions/upload-artifact@v4
         with:
           name: PasswordSafe-Sync-firmata
-          path: PasswordSafe-Sync-signed.apk
+          path: PasswordSafe-Sync-firmata.apk
           retention-days: 30

@@ -1,0 +1,6 @@
+PasswordSafe Sync - pacchetto corretto
+
+Questo pacchetto contiene l'APK Sync originale con la funzione Sincronizzazione Windows e il workflow GitHub che la firma con la chiave permanente PasswordSafe.
+
+Dopo il push aprire GitHub Actions > Firma PasswordSafe Sync APK.
+L'artifact finale si chiama PasswordSafe-Sync-firmata e contiene PasswordSafe-Sync-firmata.apk.
