@@ -50,8 +50,8 @@ jobs:
           VERSION_NAME="$(echo "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
           test "$PACKAGE" = "it.paolo.passwordsafe" || { echo "ERRORE: package $PACKAGE diverso da it.paolo.passwordsafe"; exit 1; }
           test -n "$VERSION_CODE" || { echo "ERRORE: versionCode non leggibile"; exit 1; }
-          if [ "$VERSION_CODE" -le 50 ]; then
-            echo "ERRORE: versionCode $VERSION_CODE non superiore alla versione installata (50)."
+          if [ "$VERSION_CODE" -lt 50 ]; then
+            echo "ERRORE: versionCode $VERSION_CODE inferiore alla versione installata (50)."
             exit 1
           fi
           echo "Compatibile: package=$PACKAGE versionCode=$VERSION_CODE versionName=$VERSION_NAME"
