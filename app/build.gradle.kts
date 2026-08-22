@@ -11,8 +11,8 @@ android {
         applicationId = "it.paolo.passwordsafe"
         minSdk = 26
         targetSdk = 35
-        versionCode = 50
-        versionName = "0.50"
+        versionCode = 52
+        versionName = "0.52"
     }
 
     signingConfigs {

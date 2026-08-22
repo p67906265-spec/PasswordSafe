@@ -48,6 +48,8 @@ import com.google.android.material.textfield.TextInputLayout
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.security.SecureRandom
+import android.util.Base64
 
 class MainActivity : AppCompatActivity() {
     private lateinit var security: SecurityStore
@@ -859,6 +861,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,0,0,dp(50));setBackgroundColor(panelBg());addView(pageHeader("Impostazioni"){showCategoryMenu()})
             addView(menuActionRow("Dashboard sicurezza","◉"){showSecurityDashboard()})
             addView(menuActionRow("Backup e ripristino","↥"){showBackupPage()})
+            addView(menuActionRow("Sincronizzazione Windows","↻"){showWindowsSync()})
             addView(menuActionRow("Cambia password","●"){showChangeMasterPassword()})
             addView(toggleMenuRow("Accesso con impronta","◎",security.biometricEnabled){security.biometricEnabled=it})
             addView(menuActionRow("Generatore password","⚡"){showGeneratedPassword()})
@@ -885,6 +888,49 @@ class MainActivity : AppCompatActivity() {
             addView(infoText("PasswordSafe non carica direttamente dati sui server Google: il file passa dal selettore documenti Android e viene salvato su Drive solo se scegli Drive."))
         }
         setDarkScreen(body,false)
+    }
+    private fun showWindowsSync(){
+        val prefs=getSharedPreferences("passwordsafe_sync",MODE_PRIVATE)
+        val credentials=SyncCredentialStore(this)
+        var channel=prefs.getString("channel","")?:""
+        if(channel.isBlank()){channel=ByteArray(32).also{SecureRandom().nextBytes(it)}.let{Base64.encodeToString(it,Base64.NO_WRAP or Base64.URL_SAFE)};prefs.edit().putString("channel",channel).apply()}
+        val code=channel
+        val body=column().apply{
+            setPadding(dp(18),0,dp(18),dp(50));setBackgroundColor(panelBg());addView(pageHeader("Sincronizzazione Windows"){showSettingsMenu()})
+            addView(infoText("Windows può ricevere le password solo dopo la tua autorizzazione. I dati sono cifrati per una singola richiesta e Firebase non può leggerli."))
+            if(credentials.token()!=null){
+                addView(infoText("Telefono collegato: ${credentials.email()}\n\nCodice dispositivo:\n$code"))
+                addView(button("CONTROLLA ORA"){runStoredSync(code)})
+                addView(button("SCOLLEGA ACCOUNT"){credentials.clear();showWindowsSync()})
+                post{runStoredSync(code)}
+            }else{
+                val email=dialogField("Email sincronizzazione",prefs.getString("email","")?:"").apply{inputType=InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS}
+                val password=dialogField("Password account sincronizzazione","").apply{inputType=129}
+                addView(email);addView(password);addView(infoText("Questi dati servono solo per il primo collegamento. Codice dispositivo da inserire una sola volta su Windows:\n$code"))
+                addView(button("CREA ACCOUNT SINCRONIZZAZIONE"){runSyncLogin(email.text.toString(),password.text.toString(),code,true)})
+                addView(button("COLLEGA ACCOUNT ESISTENTE"){runSyncLogin(email.text.toString(),password.text.toString(),code,false)})
+            }
+        };setDarkScreen(body,false)
+    }
+    private fun runSyncLogin(email:String,password:String,channel:String,create:Boolean){
+        if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()||password.length<8){toast("Inserisci email valida e password di almeno 8 caratteri");return}
+        getSharedPreferences("passwordsafe_sync",MODE_PRIVATE).edit().putString("email",email.trim()).apply()
+        Thread{runCatching{val client=FirebaseSyncClient();val session=client.login(email.trim(),password,create);SyncCredentialStore(this).save(email.trim(),session.refreshToken);Triple(client,session,client.pending(session,channel))}.onSuccess{(client,session,req)->runOnUiThread{
+            if(create&&req==null){toast("Account sincronizzazione creato e collegato");showWindowsSync()}
+            else if(req==null){toast("Account collegato. Nessuna richiesta Windows in attesa");showWindowsSync()}
+            else AlertDialog.Builder(this).setTitle("Autorizzare ${req.device}?").setMessage("Il PC chiede di sincronizzare la cassaforte. La richiesta scade tra pochi minuti.").setNegativeButton("Rifiuta"){_,_->Thread{runCatching{client.deny(session,channel,req)}}.start()}.setPositiveButton("Autorizza"){_,_->approveSyncBiometric(client,session,channel,req)}.show()
+        }}.onFailure{e->runOnUiThread{toast("Sincronizzazione: ${e.message}")}}}.start()
+    }
+    private fun runStoredSync(channel:String){
+        val store=SyncCredentialStore(this);val token=store.token()?:return
+        Thread{runCatching{val client=FirebaseSyncClient();val session=client.refresh(token);store.save(store.email(),session.refreshToken);Triple(client,session,client.pending(session,channel))}.onSuccess{(client,session,req)->runOnUiThread{
+            if(req==null)toast("Nessuna richiesta Windows in attesa")
+            else AlertDialog.Builder(this).setTitle("Autorizzare ${req.device}?").setMessage("Conferma con l’impronta per aprire PasswordSafe su Windows.").setNegativeButton("Rifiuta"){_,_->Thread{runCatching{client.deny(session,channel,req)}}.start()}.setPositiveButton("Continua"){_,_->approveSyncBiometric(client,session,channel,req)}.show()
+        }}.onFailure{e->runOnUiThread{store.clear();toast("Collegamento scaduto: inserisci nuovamente email e password");showWindowsSync()}}}.start()
+    }
+    private fun approveSyncBiometric(client:FirebaseSyncClient,session:SyncSession,channel:String,req:SyncRequest){
+        val prompt=BiometricPrompt(this,ContextCompat.getMainExecutor(this),object:BiometricPrompt.AuthenticationCallback(){override fun onAuthenticationSucceeded(result:BiometricPrompt.AuthenticationResult){Thread{runCatching{client.approve(session,channel,req,vault.exportClearForApprovedSync(items))}.onSuccess{runOnUiThread{toast("PC autorizzato e dati inviati")}}.onFailure{e->runOnUiThread{toast("Invio non riuscito: ${e.message}")}}}.start()}})
+        prompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle("Autorizza PasswordSafe Windows").setSubtitle("Conferma l’invio cifrato della cassaforte").setNegativeButtonText("Annulla").build())
     }
     private fun showSecurityDashboard(){
         val protected=items.filter{it.type!="PIN" && it.type!="CARD" && it.type!="PASSKEY" && it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
