@@ -26,7 +26,8 @@ data class VaultItem(
     var category:String="Altro",
     var type:String="LOGIN",
     var appPackage:String="",
-    var urlLabel:String="SITO / DOMINIO"
+    var urlLabel:String="SITO / DOMINIO",
+    var updatedAt:Long=System.currentTimeMillis()
 )
 
 class VaultStore(private val context:Context){
@@ -60,6 +61,7 @@ class VaultStore(private val context:Context){
 
     fun createBackup(items:List<VaultItem>,password:String):ByteArray{val salt=random(16);val key=derive(password,salt,MASTER_PBKDF2_ITERATIONS);val payload=encrypt(toJson(items).toByteArray(),key);key.fill(0);return JSONObject().put("format",2).put("iterations",MASTER_PBKDF2_ITERATIONS).put("salt",b64(salt)).put("data",b64(payload)).toString().toByteArray()}
     fun exportClearForApprovedSync(items:List<VaultItem>):ByteArray=toJson(items).toByteArray()
+    fun importClearFromApprovedSync(bytes:ByteArray):MutableList<VaultItem> = fromJson(String(bytes))
     fun restoreBackup(bytes:ByteArray,password:String):MutableList<VaultItem>{val o=JSONObject(String(bytes));val salt=unb64(o.getString("salt"));val iterations=if(o.getInt("format")==1) LEGACY_BACKUP_PBKDF2_ITERATIONS else MASTER_PBKDF2_ITERATIONS;val key=derive(password,salt,o.optInt("iterations",iterations));val clear=if(o.getInt("format")==1){val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,SecretKeySpec(key,"AES"),GCMParameterSpec(128,unb64(o.getString("iv"))));c.doFinal(unb64(o.getString("data")))}else decrypt(unb64(o.getString("data")),key);key.fill(0);return fromJson(String(clear))}
 
     private fun storeWrapped(prefix:String,dek:ByteArray,secret:String){val salt=random(16);val key=derive(secret,salt,MASTER_PBKDF2_ITERATIONS);prefs.edit().putString("${prefix}_salt",b64(salt)).putString("${prefix}_wrap",b64(encrypt(dek,key))).apply();key.fill(0)}
@@ -70,8 +72,8 @@ class VaultStore(private val context:Context){
     private fun decryptLegacy(data:ByteArray):ByteArray{val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)};val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,ks.getKey(legacyAlias,null),GCMParameterSpec(128,data.copyOfRange(0,12)));return c.doFinal(data.copyOfRange(12,data.size))}
     private fun derive(secret:String,salt:ByteArray,iterations:Int):ByteArray{val spec=PBEKeySpec(secret.toCharArray(),salt,iterations,256);val out=SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded;spec.clearPassword();return out}
     private fun random(n:Int)=ByteArray(n).also{SecureRandom().nextBytes(it)}
-    private fun toJson(items:List<VaultItem>)=JSONArray().apply{items.forEach{i->put(JSONObject().put("id",i.id).put("title",i.title).put("username",i.username).put("password",i.password).put("url",i.url).put("notes",i.notes).put("category",i.category).put("type",i.type).put("appPackage",i.appPackage).put("urlLabel",i.urlLabel))}}.toString()
-    private fun fromJson(json:String):MutableList<VaultItem>{val a=JSONArray(json);return MutableList(a.length()){n->a.getJSONObject(n).let{o->VaultItem(o.getString("id"),o.getString("title"),o.optString("username"),o.optString("password"),o.optString("url"),o.optString("notes"),o.optString("category","Altro"),o.optString("type","LOGIN"),o.optString("appPackage",""),o.optString("urlLabel","SITO / DOMINIO"))}}}
+    private fun toJson(items:List<VaultItem>)=JSONArray().apply{items.forEach{i->put(JSONObject().put("id",i.id).put("title",i.title).put("username",i.username).put("password",i.password).put("url",i.url).put("notes",i.notes).put("category",i.category).put("type",i.type).put("appPackage",i.appPackage).put("urlLabel",i.urlLabel).put("updatedAt",i.updatedAt))}}.toString()
+    private fun fromJson(json:String):MutableList<VaultItem>{val a=JSONArray(json);return MutableList(a.length()){n->a.getJSONObject(n).let{o->VaultItem(o.getString("id"),o.getString("title"),o.optString("username"),o.optString("password"),o.optString("url"),o.optString("notes"),o.optString("category","Altro"),o.optString("type","LOGIN"),o.optString("appPackage",""),o.optString("urlLabel","SITO / DOMINIO"),o.optLong("updatedAt",0L))}}}
     private fun b64(v:ByteArray)=Base64.encodeToString(v,Base64.NO_WRAP)
     private fun unb64(v:String)=Base64.decode(v,Base64.NO_WRAP)
 }

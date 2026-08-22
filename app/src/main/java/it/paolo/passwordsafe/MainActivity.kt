@@ -929,8 +929,11 @@ class MainActivity : AppCompatActivity() {
         }}.onFailure{e->runOnUiThread{store.clear();toast("Collegamento scaduto: inserisci nuovamente email e password");showWindowsSync()}}}.start()
     }
     private fun approveSyncBiometric(client:FirebaseSyncClient,session:SyncSession,channel:String,req:SyncRequest){
-        val prompt=BiometricPrompt(this,ContextCompat.getMainExecutor(this),object:BiometricPrompt.AuthenticationCallback(){override fun onAuthenticationSucceeded(result:BiometricPrompt.AuthenticationResult){Thread{runCatching{client.approve(session,channel,req,vault.exportClearForApprovedSync(items))}.onSuccess{runOnUiThread{toast("PC autorizzato e dati inviati")}}.onFailure{e->runOnUiThread{toast("Invio non riuscito: ${e.message}")}}}.start()}})
+        val prompt=BiometricPrompt(this,ContextCompat.getMainExecutor(this),object:BiometricPrompt.AuthenticationCallback(){override fun onAuthenticationSucceeded(result:BiometricPrompt.AuthenticationResult){Thread{runCatching{client.approveAndReceive(session,channel,req,vault.exportClearForApprovedSync(items))}.onSuccess{incoming->runOnUiThread{if(incoming==null)toast("PC autorizzato e dati inviati") else showIncomingWindowsData(vault.importClearFromApprovedSync(incoming))}}.onFailure{e->runOnUiThread{toast("Sincronizzazione non riuscita: ${e.message}")}}}.start()}})
         prompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle("Autorizza PasswordSafe Windows").setSubtitle("Conferma l’invio cifrato della cassaforte").setNegativeButtonText("Annulla").build())
+    }
+    private fun showIncomingWindowsData(incoming:MutableList<VaultItem>){
+        AlertDialog.Builder(this).setTitle("Dati ricevuti da Windows").setMessage("Windows ha inviato ${incoming.size} voci. Unisci conserva entrambe le raccolte e mantiene automaticamente la modifica più recente di ogni voce. Sostituisci usa soltanto i dati Windows.").setNegativeButton("Annulla",null).setNeutralButton("Sostituisci"){_,_->items.clear();items.addAll(incoming);vault.save(items);toast("Cassaforte sostituita con i dati Windows");showCategoryMenu()}.setPositiveButton("Unisci"){_,_->val merged=items.associateBy{it.id}.toMutableMap();incoming.forEach{remote->val local=merged[remote.id];if(local==null||remote.updatedAt>local.updatedAt)merged[remote.id]=remote};items.clear();items.addAll(merged.values);vault.save(items);toast("Sincronizzazione completata: ${items.size} voci");showCategoryMenu()}.show()
     }
     private fun showSecurityDashboard(){
         val protected=items.filter{it.type!="PIN" && it.type!="CARD" && it.type!="PASSKEY" && it.password.isNotBlank()};val reusedValues=protected.groupingBy{it.password}.eachCount().filterValues{it>1}.keys
@@ -1201,6 +1204,7 @@ class MainActivity : AppCompatActivity() {
                 saved.notes = holderF.text.toString()
                 saved.category = typeLabel
                 saved.type = itemType
+                saved.updatedAt = System.currentTimeMillis()
                 if (existing == null) items.add(saved)
                 vault.save(items)
                 vaultTypeFilter = itemType
@@ -1251,6 +1255,7 @@ class MainActivity : AppCompatActivity() {
                 saved.notes = noteF.text.toString()
                 saved.category = typeLabel
                 saved.type = itemType
+                saved.updatedAt = System.currentTimeMillis()
                 if (existing == null) items.add(saved)
                 vault.save(items)
                 vaultTypeFilter = itemType
@@ -1393,6 +1398,7 @@ class MainActivity : AppCompatActivity() {
                 if (itemType == "LOGIN") existing.urlLabel = extraFieldLabel
                 existing.category = typeLabel
                 existing.type = itemType
+                existing.updatedAt = System.currentTimeMillis()
                 if(!prefillPackage.isNullOrBlank()) existing.appPackage = prefillPackage
             }
             vault.save(items)
