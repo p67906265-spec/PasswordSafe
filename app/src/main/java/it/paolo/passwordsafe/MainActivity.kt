@@ -536,7 +536,7 @@ class MainActivity : AppCompatActivity() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
                 addView(statCell(items.size.toString(), "Elementi"), LinearLayout.LayoutParams(0, dp(52), 1f))
-                addView(statCell("8", "Categorie"), LinearLayout.LayoutParams(0, dp(52), 1f))
+                addView(statCell("9", "Categorie"), LinearLayout.LayoutParams(0, dp(52), 1f))
                 addView(statCell("✓", "Protetto"), LinearLayout.LayoutParams(0, dp(52), 1f))
             })
         }, LinearLayout.LayoutParams(0, -1, 1f))
@@ -546,7 +546,8 @@ class MainActivity : AppCompatActivity() {
             listOf(Triple("Account", "ACCOUNT", R.drawable.ic_account), Triple("PIN", "PIN", R.drawable.ic_pin)),
             listOf(Triple("Login", "LOGIN", R.drawable.ic_login), Triple("Email", "EMAIL", R.drawable.ic_email)),
             listOf(Triple("Carte", "CARD", R.drawable.ic_card), Triple("Passkey", "PASSKEY", R.drawable.ic_passkey)),
-            listOf(Triple("App", "APP", R.drawable.ic_app), Triple("Altro /\nImpostazioni", "SETTINGS", R.drawable.ic_settings))
+            listOf(Triple("App", "APP", R.drawable.ic_app), Triple("GitHub\nSecrets", "GITHUB_SECRET", R.drawable.ic_github)),
+            listOf(Triple("Altro / Impostazioni", "SETTINGS", R.drawable.ic_settings))
         )
         rows.forEach { row ->
             body.addView(LinearLayout(this).apply {
@@ -600,6 +601,7 @@ class MainActivity : AppCompatActivity() {
                 "EMAIL" -> "EMAIL"
                 "CARD" -> "CARTE"
                 "PASSKEY" -> "PASSKEY"
+                "GITHUB_SECRET" -> "GITHUB SECRETS"
                 else -> "APP"
             }
             list.addView(TextView(this).apply {
@@ -699,7 +701,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderVault(filter: String) {
         window.statusBarColor = appBg()
-        val body = column().apply { setPadding(0,0,0,dp(110));setBackgroundColor(panelBg());addView(darkHeader(when(vaultTypeFilter){"ACCOUNT"->"Account";"PIN"->"PIN";"LOGIN"->"Login";"CARD"->"Carte";"PASSKEY"->"Passkey";else->"Email"},true),LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,0)}) }
+        val body = column().apply { setPadding(0,0,0,dp(110));setBackgroundColor(panelBg());addView(darkHeader(when(vaultTypeFilter){"ACCOUNT"->"Account";"PIN"->"PIN";"LOGIN"->"Login";"CARD"->"Carte";"PASSKEY"->"Passkey";"GITHUB_SECRET"->"GitHub Secrets";else->"Email"},true),LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,0,0,0)}) }
         val filtered=items.filter{
             it.type==vaultTypeFilter &&
             it.appPackage.isBlank() &&
@@ -768,7 +770,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadServiceLogo(item: VaultItem, image: ImageView, fallback: TextView) {
-        if (item.type == "PIN" || item.type == "CARD") return
+        if (item.type == "PIN" || item.type == "CARD" || item.type == "GITHUB_SECRET") return
         if(item.appPackage.isNotBlank()) {
             val appIcon = runCatching { packageManager.getApplicationIcon(item.appPackage) }.getOrNull()
             if(appIcon != null) {
@@ -1111,9 +1113,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCreateTypeMenu() {
-        val labels = arrayOf("Account", "PIN", "Login", "Email", "Carta", "Passkey", "Da app installata")
+        val labels = arrayOf("Account", "PIN", "Login", "Email", "Carta", "Passkey", "GitHub Secrets", "Da app installata")
         AlertDialog.Builder(this).setTitle("Cosa vuoi creare?").setItems(labels) { _, which ->
-            if(which==6) {
+            if(which==7) {
                 showInstalledApps("NEW")
                 return@setItems
             }
@@ -1123,7 +1125,8 @@ class MainActivity : AppCompatActivity() {
                 2 -> "LOGIN"
                 3 -> "EMAIL"
                 4 -> "CARD"
-                else -> "PASSKEY"
+                5 -> "PASSKEY"
+                else -> "GITHUB_SECRET"
             }
             showItemDialog(null, type)
         }.setNegativeButton("Annulla",null).show()
@@ -1137,6 +1140,7 @@ class MainActivity : AppCompatActivity() {
             "EMAIL" -> "Email"
             "CARD" -> "Carta"
             "PASSKEY" -> "Passkey"
+            "GITHUB_SECRET" -> "GitHub Secrets"
             else -> "Login"
         }
 
@@ -1150,6 +1154,75 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(24), dp(8), dp(24), dp(6))
         }
         box.addView(fields)
+
+        if (itemType == "GITHUB_SECRET") {
+            val repoF = darkEditorField("Repository", existing?.title ?: "")
+            val ownerF = darkEditorField("Owner / account GitHub", existing?.username ?: "")
+            val secretNameF = darkEditorField("Nome Secret", existing?.url ?: "")
+            val secretValueF = darkEditorField("Valore Secret", existing?.password ?: "").apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            val noteF = darkEditorField("Note", existing?.notes ?: "")
+
+            addEditorField(fields, "REPOSITORY", repoF)
+            addEditorField(fields, "OWNER / ACCOUNT GITHUB", ownerF)
+            addEditorField(fields, "NOME SECRET", secretNameF)
+            addEditorField(fields, "VALORE SECRET", secretValueF)
+            addEditorField(fields, "NOTE", noteF)
+
+            fields.addView(infoText("Il valore della Secret resta cifrato nella cassaforte e viene mostrato solo su richiesta."))
+            fields.addView(darkActionButton("MOSTRA / NASCONDI VALORE") {
+                val hidden = secretValueF.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0
+                secretValueF.inputType = InputType.TYPE_CLASS_TEXT or if (hidden) InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else InputType.TYPE_TEXT_VARIATION_PASSWORD
+                secretValueF.setSelection(secretValueF.text.length)
+            })
+            if (existing != null) {
+                fields.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(dp(14), dp(6), dp(14), 0)
+                    addView(darkActionButton("COPIA NOME SECRET") {
+                        copySecure("Nome Secret", secretNameF.text.toString())
+                    }.apply { textSize = 9.5f }, LinearLayout.LayoutParams(0, dp(40), 1f).apply { setMargins(0, 0, dp(4), 0) })
+                    addView(darkActionButton("COPIA VALORE") {
+                        copySecure("Valore Secret", secretValueF.text.toString())
+                    }.apply { textSize = 9.5f }, LinearLayout.LayoutParams(0, dp(40), 1f).apply { setMargins(dp(4), 0, 0, 0) })
+                })
+            }
+            fields.addView(darkActionButton("SALVA") saveGithub@{
+                if (repoF.text.toString().isBlank() || ownerF.text.toString().isBlank() || secretNameF.text.toString().isBlank() || secretValueF.text.toString().isBlank()) {
+                    toast("Compila Repository, Owner, Nome Secret e Valore Secret")
+                    return@saveGithub
+                }
+                val saved = existing ?: VaultItem(
+                    title = repoF.text.toString(),
+                    username = ownerF.text.toString(),
+                    password = secretValueF.text.toString(),
+                    url = secretNameF.text.toString(),
+                    notes = noteF.text.toString(),
+                    category = "GitHub Secrets",
+                    type = itemType,
+                    urlLabel = "NOME SECRET"
+                )
+                saved.title = repoF.text.toString()
+                saved.username = ownerF.text.toString()
+                saved.password = secretValueF.text.toString()
+                saved.url = secretNameF.text.toString()
+                saved.notes = noteF.text.toString()
+                saved.category = "GitHub Secrets"
+                saved.type = itemType
+                saved.urlLabel = "NOME SECRET"
+                saved.appPackage = ""
+                saved.updatedAt = System.currentTimeMillis()
+                if (existing == null) items.add(saved)
+                vault.save(items)
+                vaultTypeFilter = itemType
+                showCategoryMenu()
+            })
+            fields.addView(darkActionButton("ANNULLA") { showCategoryMenu() })
+            if (existing != null) addDeleteButton(fields, existing)
+            setDarkScreen(box, false)
+            return
+        }
 
         if (itemType == "CARD") {
             val titleF = darkEditorField("Nome carta / banca", existing?.title ?: "")
