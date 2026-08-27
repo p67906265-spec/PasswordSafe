@@ -1157,67 +1157,89 @@ class MainActivity : AppCompatActivity() {
 
         if (itemType == "GITHUB_SECRET") {
             val repoF = darkEditorField("Repository", existing?.title ?: "")
-            val ownerF = darkEditorField("Owner / account GitHub", existing?.username ?: "")
-            val secretNameF = darkEditorField("Nome Secret", existing?.url ?: "")
-            val secretValueF = darkEditorField("Valore Secret", existing?.password ?: "").apply {
+            val base64F = darkEditorField("SCORTE_KEYSTORE_BASE64", existing?.username ?: "").apply {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             }
-            val noteF = darkEditorField("Note", existing?.notes ?: "")
+            val storePasswordF = darkEditorField("SCORTE_KEYSTORE_PASSWORD", existing?.password ?: "").apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            val aliasF = darkEditorField("SCORTE_KEY_ALIAS", existing?.url ?: "").apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            val keyPasswordF = darkEditorField("SCORTE_KEY_PASSWORD", existing?.notes ?: "").apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
 
             addEditorField(fields, "REPOSITORY", repoF)
-            addEditorField(fields, "OWNER / ACCOUNT GITHUB", ownerF)
-            addEditorField(fields, "NOME SECRET", secretNameF)
-            addEditorField(fields, "VALORE SECRET", secretValueF)
-            addEditorField(fields, "NOTE", noteF)
+            addEditorField(fields, "SCORTE_KEYSTORE_BASE64", base64F)
+            addEditorField(fields, "SCORTE_KEYSTORE_PASSWORD", storePasswordF)
+            addEditorField(fields, "SCORTE_KEY_ALIAS", aliasF)
+            addEditorField(fields, "SCORTE_KEY_PASSWORD", keyPasswordF)
 
-            fields.addView(infoText("Il valore della Secret resta cifrato nella cassaforte e viene mostrato solo su richiesta."))
-            fields.addView(darkActionButton("MOSTRA / NASCONDI VALORE") {
-                val hidden = secretValueF.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0
-                secretValueF.inputType = InputType.TYPE_CLASS_TEXT or if (hidden) InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else InputType.TYPE_TEXT_VARIATION_PASSWORD
-                secretValueF.setSelection(secretValueF.text.length)
-            })
-            if (existing != null) {
-                fields.addView(LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    setPadding(dp(14), dp(6), dp(14), 0)
-                    addView(darkActionButton("COPIA NOME SECRET") {
-                        copySecure("Nome Secret", secretNameF.text.toString())
-                    }.apply { textSize = 9.5f }, LinearLayout.LayoutParams(0, dp(40), 1f).apply { setMargins(0, 0, dp(4), 0) })
-                    addView(darkActionButton("COPIA VALORE") {
-                        copySecure("Valore Secret", secretValueF.text.toString())
-                    }.apply { textSize = 9.5f }, LinearLayout.LayoutParams(0, dp(40), 1f).apply { setMargins(dp(4), 0, 0, 0) })
-                })
+            fields.addView(infoText("I quattro valori restano cifrati nella cassaforte e nascosti per impostazione predefinita."))
+
+            fun toggleSecret(field: EditText) {
+                val hidden = field.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0
+                field.inputType = InputType.TYPE_CLASS_TEXT or if (hidden) InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else InputType.TYPE_TEXT_VARIATION_PASSWORD
+                field.setSelection(field.text.length)
             }
+
+            fields.addView(darkActionButton("MOSTRA / NASCONDI TUTTI") {
+                listOf(base64F, storePasswordF, aliasF, keyPasswordF).forEach { toggleSecret(it) }
+            })
+
+            if (existing != null) {
+                listOf(
+                    "COPIA BASE64" to Pair("SCORTE_KEYSTORE_BASE64", base64F),
+                    "COPIA STORE PASSWORD" to Pair("SCORTE_KEYSTORE_PASSWORD", storePasswordF),
+                    "COPIA ALIAS" to Pair("SCORTE_KEY_ALIAS", aliasF),
+                    "COPIA KEY PASSWORD" to Pair("SCORTE_KEY_PASSWORD", keyPasswordF)
+                ).forEach { (buttonLabel, data) ->
+                    fields.addView(darkActionButton(buttonLabel) {
+                        copySecure(data.first, data.second.text.toString())
+                    }.apply { textSize = 10f })
+                }
+            }
+
             fields.addView(darkActionButton("SALVA") saveGithub@{
-                if (repoF.text.toString().isBlank() || ownerF.text.toString().isBlank() || secretNameF.text.toString().isBlank() || secretValueF.text.toString().isBlank()) {
-                    toast("Compila Repository, Owner, Nome Secret e Valore Secret")
+                if (
+                    repoF.text.toString().isBlank() ||
+                    base64F.text.toString().isBlank() ||
+                    storePasswordF.text.toString().isBlank() ||
+                    aliasF.text.toString().isBlank() ||
+                    keyPasswordF.text.toString().isBlank()
+                ) {
+                    toast("Compila Repository e tutti i 4 campi GitHub")
                     return@saveGithub
                 }
+
                 val saved = existing ?: VaultItem(
                     title = repoF.text.toString(),
-                    username = ownerF.text.toString(),
-                    password = secretValueF.text.toString(),
-                    url = secretNameF.text.toString(),
-                    notes = noteF.text.toString(),
+                    username = base64F.text.toString(),
+                    password = storePasswordF.text.toString(),
+                    url = aliasF.text.toString(),
+                    notes = keyPasswordF.text.toString(),
                     category = "GitHub Secrets",
                     type = itemType,
-                    urlLabel = "NOME SECRET"
+                    urlLabel = "SCORTE_KEY_ALIAS"
                 )
                 saved.title = repoF.text.toString()
-                saved.username = ownerF.text.toString()
-                saved.password = secretValueF.text.toString()
-                saved.url = secretNameF.text.toString()
-                saved.notes = noteF.text.toString()
+                saved.username = base64F.text.toString()
+                saved.password = storePasswordF.text.toString()
+                saved.url = aliasF.text.toString()
+                saved.notes = keyPasswordF.text.toString()
                 saved.category = "GitHub Secrets"
                 saved.type = itemType
-                saved.urlLabel = "NOME SECRET"
+                saved.urlLabel = "SCORTE_KEY_ALIAS"
                 saved.appPackage = ""
                 saved.updatedAt = System.currentTimeMillis()
+
                 if (existing == null) items.add(saved)
                 vault.save(items)
                 vaultTypeFilter = itemType
                 showCategoryMenu()
             })
+
             fields.addView(darkActionButton("ANNULLA") { showCategoryMenu() })
             if (existing != null) addDeleteButton(fields, existing)
             setDarkScreen(box, false)
