@@ -1157,6 +1157,9 @@ class MainActivity : AppCompatActivity() {
 
         if (itemType == "GITHUB_SECRET") {
             val repoF = darkEditorField("Repository", existing?.title ?: "")
+            val repositoryPasswordF = darkEditorField("Password repository", existing?.extraSecret ?: "").apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
             val base64F = darkEditorField("SCORTE_KEYSTORE_BASE64", existing?.username ?: "").apply {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             }
@@ -1171,12 +1174,13 @@ class MainActivity : AppCompatActivity() {
             }
 
             addEditorField(fields, "REPOSITORY", repoF)
+            addEditorField(fields, "PASSWORD REPOSITORY", repositoryPasswordF)
             addEditorField(fields, "SCORTE_KEYSTORE_BASE64", base64F)
             addEditorField(fields, "SCORTE_KEYSTORE_PASSWORD", storePasswordF)
             addEditorField(fields, "SCORTE_KEY_ALIAS", aliasF)
             addEditorField(fields, "SCORTE_KEY_PASSWORD", keyPasswordF)
 
-            fields.addView(infoText("I quattro valori restano cifrati nella cassaforte e nascosti per impostazione predefinita."))
+            fields.addView(infoText("La password del repository e i quattro Secret restano cifrati nella cassaforte e nascosti per impostazione predefinita."))
 
             fun toggleSecret(field: EditText) {
                 val hidden = field.inputType and InputType.TYPE_TEXT_VARIATION_PASSWORD != 0
@@ -1185,11 +1189,12 @@ class MainActivity : AppCompatActivity() {
             }
 
             fields.addView(darkActionButton("MOSTRA / NASCONDI TUTTI") {
-                listOf(base64F, storePasswordF, aliasF, keyPasswordF).forEach { toggleSecret(it) }
+                listOf(repositoryPasswordF, base64F, storePasswordF, aliasF, keyPasswordF).forEach { toggleSecret(it) }
             })
 
             if (existing != null) {
                 listOf(
+                    "COPIA PASSWORD REPOSITORY" to Pair("Password repository", repositoryPasswordF),
                     "COPIA BASE64" to Pair("SCORTE_KEYSTORE_BASE64", base64F),
                     "COPIA STORE PASSWORD" to Pair("SCORTE_KEYSTORE_PASSWORD", storePasswordF),
                     "COPIA ALIAS" to Pair("SCORTE_KEY_ALIAS", aliasF),
@@ -1201,15 +1206,22 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            fields.addView(darkActionButton("GENERA PASSWORD E COPIA") {
+                val generated = generatedPassword(24, true, true, true)
+                copySecure("Password generata", generated)
+                toast("Password generata e copiata negli appunti")
+            })
+
             fields.addView(darkActionButton("SALVA") saveGithub@{
                 if (
                     repoF.text.toString().isBlank() ||
+                    repositoryPasswordF.text.toString().isBlank() ||
                     base64F.text.toString().isBlank() ||
                     storePasswordF.text.toString().isBlank() ||
                     aliasF.text.toString().isBlank() ||
                     keyPasswordF.text.toString().isBlank()
                 ) {
-                    toast("Compila Repository e tutti i 4 campi GitHub")
+                    toast("Compila Repository, Password repository e tutti i 4 campi GitHub")
                     return@saveGithub
                 }
 
@@ -1224,6 +1236,7 @@ class MainActivity : AppCompatActivity() {
                     urlLabel = "SCORTE_KEY_ALIAS"
                 )
                 saved.title = repoF.text.toString()
+                saved.extraSecret = repositoryPasswordF.text.toString()
                 saved.username = base64F.text.toString()
                 saved.password = storePasswordF.text.toString()
                 saved.url = aliasF.text.toString()

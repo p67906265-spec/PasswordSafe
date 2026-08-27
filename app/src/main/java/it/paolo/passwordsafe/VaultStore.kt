@@ -27,7 +27,8 @@ data class VaultItem(
     var type:String="LOGIN",
     var appPackage:String="",
     var urlLabel:String="SITO / DOMINIO",
-    var updatedAt:Long=System.currentTimeMillis()
+    var updatedAt:Long=System.currentTimeMillis(),
+    var extraSecret:String=""
 )
 
 class VaultStore(private val context:Context){
@@ -72,8 +73,8 @@ class VaultStore(private val context:Context){
     private fun decryptLegacy(data:ByteArray):ByteArray{val ks=KeyStore.getInstance("AndroidKeyStore").apply{load(null)};val c=Cipher.getInstance("AES/GCM/NoPadding");c.init(Cipher.DECRYPT_MODE,ks.getKey(legacyAlias,null),GCMParameterSpec(128,data.copyOfRange(0,12)));return c.doFinal(data.copyOfRange(12,data.size))}
     private fun derive(secret:String,salt:ByteArray,iterations:Int):ByteArray{val spec=PBEKeySpec(secret.toCharArray(),salt,iterations,256);val out=SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded;spec.clearPassword();return out}
     private fun random(n:Int)=ByteArray(n).also{SecureRandom().nextBytes(it)}
-    private fun toJson(items:List<VaultItem>)=JSONArray().apply{items.forEach{i->put(JSONObject().put("id",i.id).put("title",i.title).put("username",i.username).put("password",i.password).put("url",i.url).put("notes",i.notes).put("category",i.category).put("type",i.type).put("appPackage",i.appPackage).put("urlLabel",i.urlLabel).put("updatedAt",i.updatedAt))}}.toString()
-    private fun fromJson(json:String):MutableList<VaultItem>{val a=JSONArray(json);return MutableList(a.length()){n->a.getJSONObject(n).let{o->VaultItem(o.getString("id"),o.getString("title"),o.optString("username"),o.optString("password"),o.optString("url"),o.optString("notes"),o.optString("category","Altro"),o.optString("type","LOGIN"),o.optString("appPackage",""),o.optString("urlLabel","SITO / DOMINIO"),o.optLong("updatedAt",0L))}}}
+    private fun toJson(items:List<VaultItem>)=JSONArray().apply{items.forEach{i->put(JSONObject().put("id",i.id).put("title",i.title).put("username",i.username).put("password",i.password).put("url",i.url).put("notes",i.notes).put("category",i.category).put("type",i.type).put("appPackage",i.appPackage).put("urlLabel",i.urlLabel).put("updatedAt",i.updatedAt).put("extraSecret",i.extraSecret))}}.toString()
+    private fun fromJson(json:String):MutableList<VaultItem>{val a=JSONArray(json);return MutableList(a.length()){n->a.getJSONObject(n).let{o->VaultItem(o.getString("id"),o.getString("title"),o.optString("username"),o.optString("password"),o.optString("url"),o.optString("notes"),o.optString("category","Altro"),o.optString("type","LOGIN"),o.optString("appPackage",""),o.optString("urlLabel","SITO / DOMINIO"),o.optLong("updatedAt",0L),o.optString("extraSecret",""))}}}
     private fun b64(v:ByteArray)=Base64.encodeToString(v,Base64.NO_WRAP)
     private fun unb64(v:String)=Base64.decode(v,Base64.NO_WRAP)
 }
